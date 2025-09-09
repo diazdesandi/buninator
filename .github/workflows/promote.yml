@@ -18,19 +18,11 @@ jobs:
       config-hash: ${{ steps.preview.outputs.config-hash }}
       has-current: ${{ steps.preview.outputs.has-current }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Bun
-        uses: oven-sh/bun@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
           version: latest
-
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Install CLI
-        run: bun link
+      - run: bun install && bun link
 
       - name: Authenticate with Service Account
         uses: google-github-actions/auth@v2
@@ -55,19 +47,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: prod
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Bun
-        uses: oven-sh/bun@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
           version: latest
-
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Install CLI
-        run: bun link
+      - run: bun install && bun link
 
       - name: Authenticate with Service Account
         uses: google-github-actions/auth@v2
