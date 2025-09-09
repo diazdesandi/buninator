@@ -2,8 +2,6 @@ name: Generate Artifact
 on:
   pull_request_review:
     types: [submitted]
-    paths:
-      - "*.json"
 
 jobs:
   build-artifact:
