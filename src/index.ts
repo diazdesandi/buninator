@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
-import defer * as deploy from "./cli/deploy.ts";
-import defer * as preview from "./cli/preview.ts";
-
+// import defer * as deploy from "./cli/deploy.ts";
+// import defer * as preview from "./cli/preview.ts";
 
 const program = new Command();
 
@@ -14,6 +13,7 @@ program
 	.description("Deploy a file to a GCP bucket")
 	.argument("<file>", "File to deploy")
 	.action(async (file) => {
+		const deploy = await import("./cli/deploy.ts");
 		await deploy.default(file);
 	});
 
@@ -23,6 +23,7 @@ program
 	.description("Preview file to deploy")
 	.argument("<file>", "File to deploy")
 	.action(async (file) => {
+		const preview = await import("./cli/preview.ts");
 		await preview.default(file);
 	});
 
