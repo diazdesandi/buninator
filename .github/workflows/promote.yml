@@ -1,16 +1,21 @@
 name: Deployment
 on:
-  workflow_dispatch:
-    inputs:
-      config_file:
-        description: "File to deploy"
-        type: choice
-        options: [main.json]
-        required: true
+  workflow_run:
+    workflows:
+      - Generate Artifact
+    types:
+      - completed
+  # Uncomment to manually trigger the workflow
+  # workflow_dispatch:
+  #   inputs:
+  #   config_file:
+  #   description: "File to deploy"
+  #   type: choice
+  #   options: [main.json]
+  #   required: true
 
 env:
-  BUCKET_NAME: bucket-rene-testing
-
+  BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
 jobs:
   preview:
     runs-on: ubuntu-latest
@@ -18,10 +23,18 @@ jobs:
       config-hash: ${{ steps.preview.outputs.config-hash }}
       has-current: ${{ steps.preview.outputs.has-current }}
     steps:
+
       - uses: actions/checkout@v4
+
+      - name: Get artifact from {{ github.event.workflow_run.head_branch }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.workflow_run.head_commit.message }}-artifacts
+          path: ./artifact
+
       - uses: oven-sh/setup-bun@v2
         with:
-          version: latest
+          bun-version: latest
       - run: bun install && bun link
 
       - name: Authenticate with Service Account
@@ -37,10 +50,13 @@ jobs:
           echo "Bucket access:"
           gsutil ls gs://${{ env.BUCKET_NAME }}/ || echo "Bucket access verified"
 
-      - name: Preview Configuration Changes
+      - name: Preview Changes
         id: preview
-        run: buninator preview ${{ inputs.config_file }}
-
+        # run: buninator preview ${{ inputs.config_file }}
+        run: |
+          JSON_FILE=$(find ./artifact -name '*.json' | head -n 1)
+          echo "Using config file: $JSON_FILE"
+          buninator preview "$JSON_FILE"
 
   deploy:
     needs: preview
@@ -48,6 +64,13 @@ jobs:
     environment: prod
     steps:
       - uses: actions/checkout@v4
+
+      - name: Get artifact from {{ github.event.workflow_run.head_branch }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.workflow_run.head_commit.message }}-artifacts
+          path: ./artifact
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -63,8 +86,9 @@ jobs:
 
       - name: Deploy Configuration
         run: |
-          echo "🚀 Deploying ${{ inputs.config_file }} to gs://${{ env.BUCKET_NAME }}/${{ inputs.config_file }}"
-          buninator deploy ${{ inputs.config_file }}
+          CONFIG_FILE=$(find ./artifact -name '*.json' | head -n 1)
+          echo "🚀 Deploying $CONFIG_FILE to gs://${{ env.BUCKET_NAME }}/$(basename $CONFIG_FILE)"
+          buninator deploy "$CONFIG_FILE"
 
       - name: Generate Deployment Summary
         run: |
@@ -75,5 +99,6 @@ jobs:
           **Target:** \`gs://${{ env.BUCKET_NAME }}/${{ inputs.config_file }}\`
           **Backup:** \`gs://${{ env.BUCKET_NAME }}/${{ env.backup_file }}\`
           **Timestamp:** \`$(date -Iseconds)\`
+          **Requester:** \`${{ github.actor }}\`
           **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
           EOF

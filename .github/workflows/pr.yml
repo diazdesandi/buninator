@@ -1,0 +1,53 @@
+name: Generate Artifact
+on:
+  pull_request_review:
+    types: [submitted]
+    paths:
+      - "*.json"
+
+jobs:
+  build-artifact:
+    runs-on: ubuntu-latest
+    environment: test
+    if: github.event.review.state == 'approved'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find JSON files
+        id: find_json
+        run: |
+          FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '\.json$' || true)
+          echo "json_files=$FILES" >> $GITHUB_OUTPUT
+
+      - name: Upload JSON artifacts
+        if: steps.find_json.outputs.json_files != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.pull_request.title }}-artifacts
+          path: ${{ steps.find_json.outputs.json_files }}
+
+      - name: Generate Artifact Summary
+        if: steps.find_json.outputs.json_files != ''
+        run: |
+          echo "# PR JSON Artifact Summary" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -Iseconds)" >> $GITHUB_STEP_SUMMARY
+          echo "**PR:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Title:** ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Author:** ${{ github.event.pull_request.user.login }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Files:**" >> $GITHUB_STEP_SUMMARY
+          for f in ${{ steps.find_json.outputs.json_files }}; do
+            echo "- \`$f\`" >> $GITHUB_STEP_SUMMARY
+          done
+
+      - name: Comment artifact summary in PR
+        if: steps.find_json.outputs.json_files != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            github.rest.issues.createComment({
+              issue_number: pr.number,
+              body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})`
+            });
