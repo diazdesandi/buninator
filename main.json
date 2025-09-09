@@ -24,14 +24,14 @@
 			"active": false,
 			"created_at": "2025-08-25T08:15:00Z"
 		}
-		// ,
-		// {
-		// 	"id": 4,
-		// 	"name": "Carlos Rodríguez",
-		// 	"email": "carlos.rodriguez@example.com",
-		// 	"role": "user",
-		// 	"active": true,
-		// 	"created_at": "2025-09-05T16:45:00Z"
-		// }
+		,
+		{
+			"id": 4,
+			"name": "Carlos Rodríguez",
+			"email": "carlos.rodriguez@example.com",
+			"role": "user",
+			"active": true,
+			"created_at": "2025-09-05T16:45:00Z"
+		}
 	]
 }
