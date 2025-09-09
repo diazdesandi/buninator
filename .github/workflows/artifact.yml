@@ -2,8 +2,6 @@ name: Generate Artifact
 on:
   # pull_request_review:
   #   types: [submitted]
-  push:
-    branches: [main]
   pull_request:
     types: [closed]
 
@@ -20,7 +18,7 @@ jobs:
       - name: Find JSON files
         id: find_json
         run: |
-          FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '\.json$' || true)
+          FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '\.json$' || true)
           echo "json_files=$FILES" >> $GITHUB_OUTPUT
 
       - name: Upload JSON artifacts
