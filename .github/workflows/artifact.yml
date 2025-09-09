@@ -14,11 +14,13 @@ jobs:
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Find JSON files
         id: find_json
         run: |
-          FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '\.json$' || true)
+          FILES=$(git show --name-only --format="" | grep '\.json$' || true)
           echo "json_files=$FILES" >> $GITHUB_OUTPUT
 
       - name: Upload JSON artifacts
