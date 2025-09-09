@@ -2,6 +2,8 @@ name: Generate Artifact
 on:
   pull_request_review:
     types: [submitted]
+  push:
+    branches: [main] 
 
 jobs:
   build-artifact:
