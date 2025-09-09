@@ -9,7 +9,9 @@ jobs:
   build-artifact:
     runs-on: ubuntu-latest
     environment: test
-    if: github.event.review.state == 'approved'
+    if: |
+      (github.event.review.state == 'approved') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     steps:
       - uses: actions/checkout@v4
 
