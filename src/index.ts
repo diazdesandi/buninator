@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { Command } from "commander";
 import defer * as deploy from "./cli/deploy.ts";
 import defer * as preview from "./cli/preview.ts";

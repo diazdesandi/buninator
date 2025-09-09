@@ -51,8 +51,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: bun install
-      - run: bun link
+      - run: bun install && bun link
 
       - name: Authenticate with Service Account
         uses: google-github-actions/auth@v2
