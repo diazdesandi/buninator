@@ -50,8 +50,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          version: latest
-      - run: bun install && bun link
+          bun-version: latest
+      - run: bun install
+      - run: bun link
 
       - name: Authenticate with Service Account
         uses: google-github-actions/auth@v2
