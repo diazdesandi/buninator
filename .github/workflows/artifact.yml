@@ -53,11 +53,13 @@ jobs:
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |
-            console.log('Context repo:', context.repo);
-            console.log('Context payload PR:', context.payload.pull_request?.number);
+            const { owner, repo } = context.repo;
             const pr = context.payload.pull_request;
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            github.rest.issues.createComment({
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            console.log(`Commenting on ${owner}/${repo} PR #${pr.number}`);
+            await github.rest.issues.createComment({
+              owner: owner,
+              repo: repo,
               issue_number: pr.number,
               body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})`
             });
