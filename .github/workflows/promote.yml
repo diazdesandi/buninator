@@ -26,12 +26,14 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Get artifact from artifacts-${{ github.event.workflow_run.id }}
-        uses: actions/download-artifact@v4
+      # REMADE USING BUNINATOR
+      - name: Get artifact from workflow run
+        if: github.event_name == 'workflow_run'
+        uses: dawidd6/action-download-artifact@v3
         with:
-          name: artifacts-${{ github.event.workflow_run.id }}
+          name: "artifacts-${{ github.event.workflow_run.id }}"
           path: ./artifact
-          run-id: ${{ github.event.workflow_run.id }}
+          run_id: ${{ github.event.workflow_run.id }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -66,12 +68,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get artifact from artifacts-${{ github.event.workflow_run.id }}
-        uses: actions/download-artifact@v4
+      # REMADE USING BUNINATOR
+      - name: Get artifact from workflow run
+        if: github.event_name == 'workflow_run'
+        uses: dawidd6/action-download-artifact@v3
         with:
-          name: artifacts-${{ github.event.workflow_run.id }}
+          name: "artifacts-${{ github.event.workflow_run.id }}"
           path: ./artifact
-          run-id: ${{ github.event.workflow_run.id }}
+          run_id: ${{ github.event.workflow_run.id }}
 
       - uses: oven-sh/setup-bun@v2
         with:
