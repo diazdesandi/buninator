@@ -31,7 +31,7 @@ jobs:
         if: steps.find_json.outputs.json_files != ''
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.pull_request.title }}-artifacts
+          name: "artifacts-${{ github.run_id }}"
           path: ${{ steps.find_json.outputs.json_files }}
 
       - name: Generate Artifact Summary
