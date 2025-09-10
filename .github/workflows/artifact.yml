@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: test
     if: |
-      (github.event.review.state == 'approved') ||
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +53,8 @@ jobs:
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |
+            console.log('Context repo:', context.repo);
+            console.log('Context payload PR:', context.payload.pull_request?.number);
             const pr = context.payload.pull_request;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             github.rest.issues.createComment({
