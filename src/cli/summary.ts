@@ -14,6 +14,8 @@ const getSummary = async (options: Options) => {
 		: [];
 	const runId = options.runId || "";
 
+	console.log(pr.user);
+
 	const author = `@${pr?.user.login || "unknown"}`;
 
 	const timestamp = new Date().toISOString();
