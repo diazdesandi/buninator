@@ -14,18 +14,17 @@ jobs:
               run: |
                     mkdir -p json-artifact
                     find . -name "*.json" -type f -exec cp --parents {} json-artifact/ \;
-
             - name: Upload JSON artifact
               uses: actions/upload-artifact@v4
               with:
                     name: json-files
                     path: json-artifact
-
             - uses: oven-sh/setup-bun@v2
               with:
                 bun-version: latest
             - run: bun install && bun link
-
+            - name: Show github context
+              run: echo '${{ toJson(github.event) }}'
             - name: Preview Changes
               id: preview
               run: buninator summary ${{github.event}}
