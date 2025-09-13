@@ -29,15 +29,17 @@ const getSummary = async (options: Options) => {
 		summary += `- \`${file}\`\n`;
 	});
 
-	const owner = pr.base.repo.owner.login;
-	const repo = pr.base.repo.name;
+	const owner = pr.pull_request.base.repo.owner.login;
+	const repo = pr.pull_request.base.repo.name;
 	const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
 	const github = new Octokit({ auth: ghToken });
+	const body = `Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})\n\n${summary}`;
+	
 	await github.rest.issues.createComment({
 		owner,
 		repo,
 		issue_number: pr.number,
-		body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})\n\n${summary}`,
+		body,
 	});
 
 	$`echo "${summary}" >> GITHUB_STEP_SUMMARY`;
