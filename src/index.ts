@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
+import { $ } from "bun";
 
 const program = new Command();
 
