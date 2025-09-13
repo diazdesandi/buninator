@@ -40,6 +40,8 @@ jobs:
       - run: bun install && bun link
       
       - name: Generate summary
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: buninator summary --pr "$GITHUB_EVENT_PATH" --files "${{ steps.find_json.outputs.json_files }}" --run-id "${{ github.run_id }}"
 
       # - name: Generate Artifact Summary
