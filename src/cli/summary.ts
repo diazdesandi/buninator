@@ -8,13 +8,13 @@ interface Options {
 }
 
 const getSummary = async (options: Options) => {
-	console.log({ options });
-
 	const pr = options.pr ? JSON.parse(await Bun.file(options.pr).text()) : null;
 	const files = options.files
 		? options.files.split(/[\s,]+/).filter((f) => f.endsWith(".json"))
 		: [];
 	const runId = options.runId || "";
+
+	console.log({ pr });
 
 	const timestamp = new Date().toISOString();
 	let summary = "# PR JSON Artifact Summary\n";
