@@ -28,4 +28,4 @@ jobs:
 
             - name: Preview Changes
               id: preview
-              run: buniator summary ${{github.event}}
+              run: buninator summary ${{github.event}}
