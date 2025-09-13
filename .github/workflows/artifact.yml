@@ -43,33 +43,3 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: buninator summary --pr "$GITHUB_EVENT_PATH" --files "${{ steps.find_json.outputs.json_files }}" --run-id "${{ github.run_id }}"
-
-      # - name: Generate Artifact Summary
-      #   if: steps.find_json.outputs.json_files != ''
-      #   run: |
-      #     echo "# PR JSON Artifact Summary" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Timestamp:** $(date -Iseconds)" >> $GITHUB_STEP_SUMMARY
-      #     echo "**PR:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Title:** ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Author:** ${{ github.event.pull_request.user.login }}" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Files:**" >> $GITHUB_STEP_SUMMARY
-      #     for f in ${{ steps.find_json.outputs.json_files }}; do
-      #       echo "- \`$f\`" >> $GITHUB_STEP_SUMMARY
-      #     done
-
-      # - name: Comment artifact summary in PR
-      #   if: steps.find_json.outputs.json_files != ''
-      #   uses: actions/github-script@v7
-      #   with:
-      #     github-token: ${{ secrets.GH_TOKEN }}
-      #     script: |
-      #       const { owner, repo } = context.repo;
-      #       const pr = context.payload.pull_request;
-      #       const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
-      #       console.log(`Commenting on ${owner}/${repo} PR #${pr.number}`);
-      #       await github.rest.issues.createComment({
-      #         owner: owner,
-      #         repo: repo,
-      #         issue_number: pr.number,
-      #         body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})`
-      #       });
