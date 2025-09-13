@@ -25,16 +25,18 @@ program
 		await preview(file);
 	});
 
+
+// buninator action --pr "$GITHUB_EVENT_PATH" --files "file1.json,file2.json" --run-id "$GITHUB_RUN_ID"
 program
 	.command("summary")
 	.alias("s")
 	.description("Generate a summary of the PR")
-	.argument("<event>", "GitHub event JSON file")
-	.action(async (event) => {
-		console.log({ event });
-		const { getRepoSummary } = await import("./cli/summary.ts");
-		const summary = await getRepoSummary(event);
-		console.log(summary);
+	.option("-p, --pr <path>", "GitHub PR object as path")
+	.option("-f, --files <files>", "Changed JSON files (space/comma separated)")
+	.option("-r, --run-id <id>", "GitHub Actions run ID")
+	.action(async (options) => {
+		const { getSummary } = await import("./cli/summary.ts");
+		await getSummary(options);
 	});
 
 program.parse();
