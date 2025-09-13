@@ -2,7 +2,7 @@ import { ghToken } from "@config";
 import { $ } from "bun";
 import { Octokit } from "octokit";
 interface Options {
-	pr?: string; // PR JSON as string
+	pr?: string; // PR JSON file path
 	files?: string; // Changed files as comma/space separated string
 	runId?: string; // GitHub Actions run ID
 }
@@ -14,14 +14,14 @@ const getSummary = async (options: Options) => {
 		: [];
 	const runId = options.runId || "";
 
-	console.log({ pr });
+	const author = `@${pr?.user.login || "unknown"}`;
 
 	const timestamp = new Date().toISOString();
 	let summary = "# PR JSON Artifact Summary\n";
 	summary += `**Timestamp:** ${timestamp}\n`;
 	summary += `**PR:** #${pr.number}\n`;
 	summary += `**Title:** ${pr.title}\n`;
-	summary += `**Author:** ${pr.user.login}\n`;
+	summary += `**Author:** ${author}\n`;
 	summary += "**Files:**\n";
 
 	files.forEach((file) => {
