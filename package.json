@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "commander": "^14.0.0",
-    "consola": "^3.4.2"
+    "consola": "^3.4.2",
+    "octokit": "^5.0.3"
   }
 }

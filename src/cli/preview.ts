@@ -1,10 +1,9 @@
+import { bucket } from "@config";
 import { $ } from "bun";
 import { consola } from "consola/basic";
 
-const bucket: string = "bucket-rene-testing";
-
 const preview = async (file: string) => {
-	consola.info(`🔍 Preview: ${file} → gs://${bucket}/config.json`);
+	consola.info(`🔍 Preview: ${file} → gs://${bucket}/${file}`);
 
 	// Show new config content
 	const config = await Bun.file(`${file}`).json();
@@ -13,12 +12,16 @@ const preview = async (file: string) => {
 
 	// Show current config if exists
 	try {
-		const current = await $`gsutil cat gs://${bucket}/${file}.json`.quiet();
+		const current = await $`gsutil cat gs://${bucket}/${file}`.quiet();
 		consola.info("\n📄 CURRENT CONFIG:");
-		consola.info(JSON.parse(current.stdout.toString()));
+		const currentConfig = JSON.parse(current.stdout.toString());
+		const lines = JSON.stringify(currentConfig, null, 2)
+			.split("\n")
+			.slice(0, 5);
+		consola.info(lines.join("\n"));
 	} catch {
 		consola.info("\nℹ️  No current config in bucket");
 	}
 };
 
-export default preview;
+export { preview };

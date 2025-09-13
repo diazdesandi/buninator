@@ -1,0 +1,31 @@
+name: Summary test
+
+on:
+    workflow_dispatch:
+
+jobs:
+    json-artifact:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Find JSON files
+              run: |
+                    mkdir -p json-artifact
+                    find . -name "*.json" -type f -exec cp --parents {} json-artifact/ \;
+
+            - name: Upload JSON artifact
+              uses: actions/upload-artifact@v4
+              with:
+                    name: json-files
+                    path: json-artifact
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                bun-version: latest
+            - run: bun install && bun link
+
+            - name: Preview Changes
+              id: preview
+              run: buniator summary ${{github.event}}
