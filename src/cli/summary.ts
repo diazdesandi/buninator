@@ -7,6 +7,7 @@ interface Options {
 	runId?: string; // GitHub Actions run ID
 }
 
+// TODO: Get types from octokit
 const getSummary = async (options: Options) => {
 	const pr = options.pr ? JSON.parse(await Bun.file(options.pr).text()) : null;
 	const files = options.files
@@ -14,9 +15,7 @@ const getSummary = async (options: Options) => {
 		: [];
 	const runId = options.runId || "";
 
-	console.log(pr.user);
-
-	const author = `@${pr?.user.login || "unknown"}`;
+	const author = `@${pr.pull_request.user.login || "unknown"}`;
 
 	const timestamp = new Date().toISOString();
 	let summary = "# PR JSON Artifact Summary\n";
@@ -35,8 +34,8 @@ const getSummary = async (options: Options) => {
 	const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
 	const github = new Octokit({ auth: ghToken });
 	await github.rest.issues.createComment({
-		owner: owner,
-		repo: repo,
+		owner,
+		repo,
 		issue_number: pr.number,
 		body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})\n\n${summary}`,
 	});
