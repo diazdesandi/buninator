@@ -32,10 +32,6 @@
 			"active": true,
 			"created_at": "2025-09-05T16:45:00Z"
 		},
-		{
-			"id": 5,
-			"name": "María Fernández",
-			"email": ""
-		}
+		{}
 	]
 }
