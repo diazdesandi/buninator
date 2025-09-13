@@ -10,7 +10,7 @@ interface Options {
 const getSummary = async (options: Options) => {
 	console.log({ options });
 
-	const pr = options.pr ? JSON.parse(options.pr) : null;
+	const pr = options.pr ? JSON.parse(await Bun.file(options.pr).text()) : null;
 	const files = options.files
 		? options.files.split(/[\s,]+/).filter((f) => f.endsWith(".json"))
 		: [];
