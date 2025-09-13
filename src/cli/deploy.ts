@@ -28,4 +28,4 @@ const deploy = async (file: string, expectedHash?: string) => {
 	consola.info(`✅ Deployed ${file}!`);
 };
 
-export default deploy;
+export { deploy };
