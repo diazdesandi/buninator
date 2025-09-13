@@ -1,4 +1,5 @@
 import { ghToken } from "@config";
+import { $ } from "bun";
 import { Octokit } from "octokit";
 interface Options {
 	pr?: string; // PR JSON as string
@@ -37,6 +38,8 @@ const getSummary = async (options: Options) => {
 		issue_number: pr.number,
 		body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})\n\n${summary}`,
 	});
+
+	$`echo "${summary}" >> GITHUB_STEP_SUMMARY`;
 };
 
 export { getSummary };
