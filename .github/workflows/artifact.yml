@@ -1,0 +1,45 @@
+name: Generate Artifact
+on:
+  # pull_request_review:
+  #   types: [submitted]
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+jobs:
+  build-artifact:
+    runs-on: ubuntu-latest
+    environment: test
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find JSON files
+        id: find_json
+        run: |
+          echo "Using PR commit range:"
+          echo "Base: ${{ github.event.pull_request.base.sha }}"
+          echo "Head: ${{ github.event.pull_request.head.sha }}"
+          FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '\.json$' || true)
+          echo "Found JSON files: '$FILES'"
+          echo "json_files=$FILES" >> $GITHUB_OUTPUT
+
+      - name: Upload JSON artifacts
+        if: steps.find_json.outputs.json_files != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: "artifacts-${{ github.run_id }}"
+          path: ${{ steps.find_json.outputs.json_files }}
+          
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install && bun link
+      
+      - name: Generate summary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: buninator summary --pr "$GITHUB_EVENT_PATH" --files "${{ steps.find_json.outputs.json_files }}" --run-id "${{ github.run_id }}"

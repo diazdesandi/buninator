@@ -1,0 +1,110 @@
+name: Deployment
+on:
+  workflow_run:
+    workflows:
+      - Generate Artifact
+    types:
+      - completed
+  # Uncomment to manually trigger the workflow
+  # workflow_dispatch:
+  #   inputs:
+  #   config_file:
+  #   description: "File to deploy"
+  #   type: choice
+  #   options: [main.json]
+  #   required: true
+
+env:
+  BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    outputs:
+      config-hash: ${{ steps.preview.outputs.config-hash }}
+      has-current: ${{ steps.preview.outputs.has-current }}
+    steps:
+
+      - uses: actions/checkout@v4
+
+      # REMADE USING BUNINATOR
+      - name: Get artifact from workflow run
+        if: github.event_name == 'workflow_run'
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          name: "artifacts-${{ github.event.workflow_run.id }}"
+          path: ./artifact
+          run_id: ${{ github.event.workflow_run.id }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install && bun link
+
+      - name: Authenticate with Service Account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify Service Account Access
+        run: |
+          echo "Bucket access:"
+          gsutil ls gs://${{ env.BUCKET_NAME }}/ || echo "Bucket access verified"
+
+      - name: Preview Changes
+        id: preview
+        # run: buninator preview ${{ inputs.config_file }}
+        run: |
+          JSON_FILE=$(find ./artifact -name '*.json' | head -n 1)
+          echo "Using config file: $JSON_FILE"
+          buninator preview "$JSON_FILE"
+
+  deploy:
+    needs: preview
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      # REMADE USING BUNINATOR
+      - name: Get artifact from workflow run
+        if: github.event_name == 'workflow_run'
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          name: "artifacts-${{ github.event.workflow_run.id }}"
+          path: ./artifact
+          run_id: ${{ github.event.workflow_run.id }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install && bun link
+
+      - name: Authenticate with Service Account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Configuration
+        run: |
+          CONFIG_FILE=$(find ./artifact -name '*.json' | head -n 1)
+          echo "🚀 Deploying $CONFIG_FILE to gs://${{ env.BUCKET_NAME }}/$(basename $CONFIG_FILE)"
+          buninator deploy "$CONFIG_FILE"
+
+      - name: Generate Deployment Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # ✅ Deployment Successful
+
+          **File:** \`${{ inputs.config_file }}\`
+          **Target:** \`gs://${{ env.BUCKET_NAME }}/${{ inputs.config_file }}\`
+          **Backup:** \`gs://${{ env.BUCKET_NAME }}/${{ env.backup_file }}\`
+          **Timestamp:** \`$(date -Iseconds)\`
+          **Requester:** \`${{ github.actor }}\`
+          **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          EOF

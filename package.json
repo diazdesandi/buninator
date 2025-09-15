@@ -1,0 +1,23 @@
+{
+  "name": "buninator",
+  "version": "0.0.0",
+  "description": "A CLI tool to promote configuration files to Google Cloud Storage",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.3",
+    "@types/bun": "latest"
+  },
+  "bin": {
+    "buninator": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "consola": "^3.4.2",
+    "octokit": "^5.0.3"
+  }
+}
