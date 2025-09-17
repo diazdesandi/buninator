@@ -39,6 +39,11 @@ const getSummary = async (options: Options) => {
 		body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})\n\n${summary}`,
 	});
 
+	if (process.env.GITHUB_STEP_SUMMARY) {
+		await Bun.write(process.env.GITHUB_STEP_SUMMARY, summary, {
+			createPath: true,
+		});
+	}
 };
 
 export { getSummary };

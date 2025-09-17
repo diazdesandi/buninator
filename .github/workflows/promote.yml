@@ -101,9 +101,7 @@ jobs:
           cat >> $GITHUB_STEP_SUMMARY << EOF
           # ✅ Deployment Successful
 
-          **File:** \`${{ inputs.config_file }}\`
-          **Target:** \`gs://${{ env.BUCKET_NAME }}/${{ inputs.config_file }}\`
-          **Backup:** \`gs://${{ env.BUCKET_NAME }}/${{ env.backup_file }}\`
+          **File:** \`$CONFIG_FILE\`
           **Timestamp:** \`$(date -Iseconds)\`
           **Requester:** \`${{ github.actor }}\`
           **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
