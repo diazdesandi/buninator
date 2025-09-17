@@ -3,6 +3,13 @@ on:
   push:
     branches: ['feature/*', 'feat/*']
 
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   auto-pr:
     runs-on: ubuntu-latest
@@ -37,5 +44,3 @@ jobs:
           
           This PR was automatically created when changes were pushed to the feature branch." \
             --label "automated-pr,feature"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
