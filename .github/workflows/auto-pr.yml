@@ -7,25 +7,37 @@ jobs:
   auto-pr:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      
       - name: Check if PR exists
         id: check-pr
-        uses: actions/github-script@v8
+        uses: actions/github-script@v7
         with:
           script: |
-            const { data: pullRequests } = await github.pulls.list({
+            const { data: pullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`,
             });
             return pullRequests.length > 0 ? pullRequests[0].number : null;
+
       - name: Create PR
         if: steps.check-pr.outputs.result == 'null'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Automated PR for changes in ${{ github.ref }}"
-          title: "Automated PR for changes in branch ${{ github.ref }}"
-          body: "Automated PR created for changes in branch ${{ github.ref }}."
-          labels: automated-pr, feature
+          commit-message: "Automated PR for changes in ${{ github.ref_name }}"
+          title: "🔄 Auto PR: ${{ github.ref_name }}"
+          body: |
+            ## 🤖 Automated Pull Request
+            
+            **Branch:** `${{ github.ref_name }}`
+            **Triggered by:** @${{ github.actor }}
+            **Commit:** ${{ github.sha }}
+            
+            This PR was automatically created when changes were pushed to the feature branch.
+          labels: |
+            automated-pr
+            feature
           base: main
