@@ -7,6 +7,7 @@ interface Options {
 	runId?: string; // GitHub Actions run ID
 }
 
+// TODO: Improve summary, handle deployment PRs, etc.
 const getSummary = async (options: Options) => {
 	console.log({ options });
 

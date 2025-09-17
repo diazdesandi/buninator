@@ -1,39 +1,35 @@
-name: Deployment
+name: Promote to Production
 on:
-  workflow_run:
-    workflows:
-      - Generate Artifact
+  pull_request:
+    branches:
+      - prod
     types:
-      - completed
-  # Uncomment to manually trigger the workflow
-  # workflow_dispatch:
-  #   inputs:
-  #   config_file:
-  #   description: "File to deploy"
-  #   type: choice
-  #   options: [main.json]
-  #   required: true
-
+      - opened
+      - synchronize  
+      - closed
+      
 env:
   BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
 jobs:
   preview:
     runs-on: ubuntu-latest
+    if: github.event.action != 'closed' 
     outputs:
       config-hash: ${{ steps.preview.outputs.config-hash }}
       has-current: ${{ steps.preview.outputs.has-current }}
     steps:
-
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # REMADE USING BUNINATOR
       - name: Get artifact from workflow run
-        if: github.event_name == 'workflow_run'
-        uses: dawidd6/action-download-artifact@v3
+        if: github.event.action != 'closed'
+        uses: dawidd6/action-download-artifact@v11
         with:
-          name: "artifacts-${{ github.event.workflow_run.id }}"
+          workflow: generate-artifact.yml
+          name_is_regexp: true
+          name: "artifacts-.*"
+          commit: ${{ github.event.pull_request.head.sha }}
           path: ./artifact
-          run_id: ${{ github.event.workflow_run.id }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -41,12 +37,12 @@ jobs:
       - run: bun install && bun link
 
       - name: Authenticate with Service Account
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Verify Service Account Access
         run: |
@@ -65,17 +61,19 @@ jobs:
     needs: preview
     runs-on: ubuntu-latest
     environment: prod
+    if: github.event.pull_request.merged == true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # REMADE USING BUNINATOR
-      - name: Get artifact from workflow run
-        if: github.event_name == 'workflow_run'
-        uses: dawidd6/action-download-artifact@v3
+      - name: Get artifact from commit SHA  
+        uses: dawidd6/action-download-artifact@v11
         with:
-          name: "artifacts-${{ github.event.workflow_run.id }}"
+          workflow: generate-artifact.yml
+          name_is_regexp: true
+          name: "artifacts-.*"
+          commit: ${{ github.event.pull_request.head.sha }}
           path: ./artifact
-          run_id: ${{ github.event.workflow_run.id }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -83,12 +81,12 @@ jobs:
       - run: bun install && bun link
 
       - name: Authenticate with Service Account
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Deploy Configuration
         run: |
@@ -98,10 +96,10 @@ jobs:
 
       - name: Generate Deployment Summary
         run: |
+          CONFIG_FILE=$(find ./artifact -name '*.json' | head -n 1)  # Define here
           cat >> $GITHUB_STEP_SUMMARY << EOF
           # ✅ Deployment Successful
-
-          **File:** \`$CONFIG_FILE\`
+          **File:** \`$(basename $CONFIG_FILE)\`
           **Timestamp:** \`$(date -Iseconds)\`
           **Requester:** \`${{ github.actor }}\`
           **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

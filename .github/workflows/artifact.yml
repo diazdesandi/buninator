@@ -4,7 +4,10 @@ on:
   #   types: [submitted]
   pull_request:
     types: [closed]
-  workflow_dispatch:
+    branches:
+      [ main, master ]
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build-artifact:
@@ -13,14 +16,14 @@ jobs:
     if: |
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Find JSON files
         id: find_json
         run: |
-          echo "Using PR commit range:"
+          echo "PR commit range:"
           echo "Base: ${{ github.event.pull_request.base.sha }}"
           echo "Head: ${{ github.event.pull_request.head.sha }}"
           FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '\.json$' || true)
@@ -40,6 +43,19 @@ jobs:
       - run: bun install && bun link
       
       - name: Generate summary
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: buninator summary --pr "$GITHUB_EVENT_PATH" --files "${{ steps.find_json.outputs.json_files }}" --run-id "${{ github.run_id }}"
+
+      - name: Create prod PR for ${{ steps.find_json.outputs.json_files[0] }}
+        run: |
+          # Check if PR already exists
+          if gh pr list --base prod --head main | grep -q "Deploy to Production"; then
+            echo "Production PR already exists"
+            exit 0
+          fi        
+
+          gh pr create \
+            --base prod \
+            --head main \
+            --title "🚀 Deploy to Production - ${{ github.sha }}" \
+            --body "Deploying changes from PR #${{ github.event.pull_request.number }} to production" \
+            --label deployment,auto-created

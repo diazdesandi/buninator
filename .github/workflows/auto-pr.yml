@@ -1,0 +1,30 @@
+on:
+  push:
+    branches: ['feature/*', 'feat/*']
+
+jobs:
+  auto-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if PR exists
+        id: check-pr
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: pullRequests } = await github.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`,
+            });
+            return pullRequests.length > 0 ? pullRequests[0].number : null;
+      - name: Create PR
+        if: steps.check-pr.outputs.result == 'null'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Automated PR for changes in ${{ github.ref }}"
+          title: "Automated PR for changes in branch ${{ github.ref }}"
+          body: "Automated PR created for changes in branch ${{ github.ref }}."
+          labels: automated-pr, feature
+          base: main
