@@ -24,20 +24,18 @@ jobs:
 
       - name: Create PR
         if: steps.check-pr.outputs.result == 'null'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Automated PR for changes in ${{ github.ref_name }}"
-          title: "🔄 Auto PR: ${{ github.ref_name }}"
-          body: |
-            ## 🤖 Automated Pull Request
-            
-            **Branch:** `${{ github.ref_name }}`
-            **Triggered by:** @${{ github.actor }}
-            **Commit:** ${{ github.sha }}
-            
-            This PR was automatically created when changes were pushed to the feature branch.
-          labels: |
-            automated-pr
-            feature
-          base: main
+        run: |
+          gh pr create \
+            --base main \
+            --head ${{ github.ref_name }} \
+            --title "🔄 Auto PR: ${{ github.ref_name }}" \
+            --body "## 🤖 Automated Pull Request
+
+          **Branch:** \`${{ github.ref_name }}\`
+          **Triggered by:** @${{ github.actor }}
+          **Commit:** ${{ github.sha }}
+          
+          This PR was automatically created when changes were pushed to the feature branch." \
+            --label "automated-pr,feature"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
