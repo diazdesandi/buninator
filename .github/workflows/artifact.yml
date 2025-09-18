@@ -1,15 +1,12 @@
 name: Generate Artifact
 on:
-  push:
-    branches:
-      [ main, master ]
   pull_request:
-    branches:
-      [ main, master ]
+    branches: [main, master]
+    types: [opened, synchronize, reopened]
 
 permissions:
-  actions: read
   contents: read
+  actions: write
   pull-requests: write
 
 env:
