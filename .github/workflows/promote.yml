@@ -1,15 +1,12 @@
 name: Promote to Production
 on:
   pull_request:
-    branches:
-      - prod
-    types:
-      - opened
-      - synchronize  
-      - closed
-      
+    branches: [prod]
+    types: [opened, synchronize, closed]
+    
 permissions:
   contents: read
+  actions: read
   pull-requests: write  
   
 env:
@@ -17,16 +14,11 @@ env:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    if: github.event.action != 'closed' 
-    outputs:
-      config-hash: ${{ steps.preview.outputs.config-hash }}
-      has-current: ${{ steps.preview.outputs.has-current }}
+    if: ${{ github.event.action != 'closed' }}
     steps:
       - uses: actions/checkout@v5
-
       # REMADE USING BUNINATOR
       - name: Get artifact from workflow run
-        if: github.event.action != 'closed'
         uses: dawidd6/action-download-artifact@v11
         with:
           workflow: generate-artifact.yml
@@ -51,7 +43,7 @@ jobs:
       - name: Verify Service Account Access
         run: |
           echo "Bucket access:"
-          gsutil ls gs://${{ env.BUCKET_NAME }}/ || echo "Bucket access verified"
+          gsutil ls gs://${{ env.BUCKET_NAME }}/ && echo "Bucket access verified"
 
       - name: Preview Changes
         id: preview
@@ -62,10 +54,12 @@ jobs:
           buninator preview "$JSON_FILE"
 
   deploy:
-    needs: preview
+    if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
     environment: prod
-    if: github.event.pull_request.merged == true
+    concurrency:
+      group: prod
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
 
