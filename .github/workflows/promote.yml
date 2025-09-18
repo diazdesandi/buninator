@@ -11,6 +11,9 @@ permissions:
   
 env:
   BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  
 jobs:
   preview:
     runs-on: ubuntu-latest
