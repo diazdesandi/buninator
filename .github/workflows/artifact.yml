@@ -19,8 +19,7 @@ jobs:
   build-artifact:
     runs-on: ubuntu-latest
     environment: test
-    if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    if: ${{ github.event.pull_request.merged == true }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -40,7 +39,7 @@ jobs:
         if: steps.find_json.outputs.json_files != ''
         uses: actions/upload-artifact@v4
         with:
-          name: "artifacts-${{ github.run_id }}"
+          name: "artifacts-${{ github.event.pull_request.merge_commit_sha }}"
           path: ${{ steps.find_json.outputs.json_files }}
           
       - uses: oven-sh/setup-bun@v2
