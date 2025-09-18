@@ -24,11 +24,9 @@ jobs:
       - name: Find feature branch commit (artifact commit)
         id: find_artifact_commit
         run: |
-          # Get the merge commit from the PR context
           MERGE_COMMIT="${{ github.event.pull_request.head.sha }}"
           echo "Merge commit: $MERGE_COMMIT"
 
-          # Get the first parent (should be a23d04c in your case)
           FEATURE_COMMIT=$(git rev-parse ${MERGE_COMMIT}^1)
           echo "Feature branch commit: $FEATURE_COMMIT"
           echo "Expected artifact name: artifacts-$FEATURE_COMMIT"
@@ -50,7 +48,7 @@ jobs:
         with:
           workflow: artifact.yml
           name: "artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
-          commit: ${{ github.event.pull_request.head.sha }}
+          commit: ${{ steps.find_artifact_commit.outputs.artifact_commit }}
           path: ./artifact
 
       - uses: oven-sh/setup-bun@v2
@@ -93,11 +91,9 @@ jobs:
       - name: Find feature branch commit (artifact commit)
         id: find_artifact_commit
         run: |
-          # Get the merge commit from the PR context
           MERGE_COMMIT="${{ github.event.pull_request.head.sha }}"
           echo "Merge commit: $MERGE_COMMIT"
 
-          # Get the first parent (should be a23d04c in your case)
           FEATURE_COMMIT=$(git rev-parse ${MERGE_COMMIT}^1)
           echo "Feature branch commit: $FEATURE_COMMIT"
           echo "Expected artifact name: artifacts-$FEATURE_COMMIT"
@@ -119,8 +115,9 @@ jobs:
         with:
           workflow: artifact.yml
           name: "artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
-          commit: ${{ github.event.pull_request.head.sha }}
+          commit: ${{ steps.find_artifact_commit.outputs.artifact_commit }}
           path: ./artifact
+
 
       - uses: oven-sh/setup-bun@v2
         with:
