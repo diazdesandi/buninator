@@ -1,4 +1,5 @@
 import { token } from "@config";
+import consola from "consola";
 import { Octokit } from "octokit";
 
 interface Options {
@@ -7,43 +8,53 @@ interface Options {
 	runId?: string; // GitHub Actions run ID
 }
 
-// TODO: Improve summary, handle deployment PRs, etc.
+// TODO: Improve summary, handle deployment PRs, refactor, improve error handling, etc.
 const getSummary = async (options: Options) => {
 	console.log({ options });
 
-	const pr = options.pr ? JSON.parse(options.pr) : null;
-	const files = options.files
-		? options.files.split(/[\s,]+/).filter((f) => f.endsWith(".json"))
-		: [];
-	const runId = options.runId || "";
+	try {
+		if (!options.pr) {
+			throw new Error("No PR JSON provided");
+		}
 
-	const timestamp = new Date().toISOString();
-	let summary = "# PR JSON Artifact Summary\n";
-	summary += `**Timestamp:** ${timestamp}\n`;
-	summary += `**PR:** #${pr.number}\n`;
-	summary += `**Title:** ${pr.title}\n`;
-	summary += `**Author:** ${pr.user.login}\n`;
-	summary += "**Files:**\n";
+		const raw = await Bun.file(options.pr).text();
+		const pr = JSON.parse(raw).pull_request;
+		const files = options.files
+			? options.files.split(/[\s,]+/).filter((f) => f.endsWith(".json"))
+			: [];
+		const runId = options.runId || "";
 
-	files.forEach((file) => {
-		summary += `- \`${file}\`\n`;
-	});
+		const timestamp = new Date().toISOString();
+		let summary = "# PR JSON Artifact Summary\n";
+		summary += `**Timestamp:** ${timestamp}\n`;
+		summary += `**PR:** #${pr.number}\n`;
+		summary += `**Title:** ${pr.title}\n`;
+		summary += `**Author:** ${pr.user.login}\n`;
+		summary += "**Files:**\n";
 
-	const owner = pr.base.repo.owner.login;
-	const repo = pr.base.repo.name;
-	const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
-	const github = new Octokit({ auth: token });
-	await github.rest.issues.createComment({
-		owner: owner,
-		repo: repo,
-		issue_number: pr.number,
-		body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})\n\n${summary}`,
-	});
-
-	if (process.env.GITHUB_STEP_SUMMARY) {
-		await Bun.write(process.env.GITHUB_STEP_SUMMARY, summary, {
-			createPath: true,
+		files.forEach((file) => {
+			summary += `- \`${file}\`\n`;
 		});
+
+		const owner = pr.base.repo.owner.login;
+		const repo = pr.base.repo.name;
+		const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+		const github = new Octokit({ auth: token });
+		await github.rest.issues.createComment({
+			owner: owner,
+			repo: repo,
+			issue_number: pr.number,
+			body: `📝 Artifact generated for this PR!\n\nSee details and download here: [Workflow Run](${runUrl})\n\n${summary}`,
+		});
+
+		if (process.env.GITHUB_STEP_SUMMARY) {
+			await Bun.write(process.env.GITHUB_STEP_SUMMARY, summary, {
+				createPath: true,
+			});
+		}
+	} catch (error) {
+		consola.error("Error generating summary:", error);
+		throw error;
 	}
 };
 
