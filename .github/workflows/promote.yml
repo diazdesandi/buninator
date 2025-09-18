@@ -22,9 +22,8 @@ jobs:
         uses: dawidd6/action-download-artifact@v11
         with:
           workflow: artifact.yml
-          name_is_regexp: true
-          name: "artifacts-.*"
-          commit: ${{ github.event.pull_request.merge_commit_sha }}
+          name: "artifacts-${{ github.event.pull_request.head.sha }}"
+          commit: ${{ github.event.pull_request.head.sha }}
           path: ./artifact
 
       - uses: oven-sh/setup-bun@v2
@@ -68,9 +67,8 @@ jobs:
         uses: dawidd6/action-download-artifact@v11
         with:
           workflow: artifact.yml
-          name_is_regexp: true
-          name: "artifacts-.*"
-          commit: ${{ github.event.pull_request.merge_commit_sha }}
+          name: "artifacts-${{ github.event.pull_request.head.sha }}"
+          commit: ${{ github.event.pull_request.head.sha }}
           path: ./artifact
 
       - uses: oven-sh/setup-bun@v2

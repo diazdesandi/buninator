@@ -39,7 +39,7 @@ jobs:
         if: steps.find_json.outputs.json_files != ''
         uses: actions/upload-artifact@v4
         with:
-          name: "artifacts-${{ github.event.pull_request.merge_commit_sha }}"
+          name: "artifacts-${{ github.sha }}"
           path: ${{ steps.find_json.outputs.json_files }}
           
       - uses: oven-sh/setup-bun@v2
