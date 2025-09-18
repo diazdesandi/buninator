@@ -2,7 +2,7 @@ name: Generate Artifact
 on:
   pull_request:
     branches: [main, master]
-    types: [opened, synchronize, reopened]
+    types: [closed]
 
 permissions:
   contents: read
