@@ -24,7 +24,7 @@ jobs:
           workflow: artifact.yml
           name_is_regexp: true
           name: "artifacts-.*"
-          commit: ${{ github.event.pull_request.head.sha }}
+          commit: ${{ github.event.pull_request.merge_commit_sha }}
           path: ./artifact
 
       - uses: oven-sh/setup-bun@v2
@@ -67,10 +67,10 @@ jobs:
       - name: Get artifact from commit SHA  
         uses: dawidd6/action-download-artifact@v11
         with:
-          workflow: generate-artifact.yml
+          workflow: artifact.yml
           name_is_regexp: true
           name: "artifacts-.*"
-          commit: ${{ github.event.pull_request.head.sha }}
+          commit: ${{ github.event.pull_request.merge_commit_sha }}
           path: ./artifact
 
       - uses: oven-sh/setup-bun@v2
