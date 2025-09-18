@@ -20,6 +20,8 @@ jobs:
     if: ${{ github.event.action != 'closed' }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Find feature branch commit (artifact commit)
         id: find_artifact_commit
@@ -86,6 +88,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       # REMADE USING BUNINATOR
       - name: Find feature branch commit (artifact commit)
