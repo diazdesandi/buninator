@@ -35,6 +35,17 @@ jobs:
           echo "Found JSON files: '$FILES'"
           echo "json_files=$FILES" >> $GITHUB_OUTPUT
 
+      - name: Debug all commit SHAs
+        run: |
+          echo "=== ARTIFACT WORKFLOW DEBUG ==="
+          echo "github.sha: ${{ github.sha }}"
+          echo "github.event.pull_request.head.sha: ${{ github.event.pull_request.head.sha }}"
+          echo "github.event.pull_request.merge_commit_sha: ${{ github.event.pull_request.merge_commit_sha }}"
+          echo "github.event.pull_request.base.sha: ${{ github.event.pull_request.base.sha }}"
+          echo "Current HEAD: $(git rev-parse HEAD)"
+          echo "Artifact will be named: artifacts-${{ github.sha }}"
+          echo "=========================="
+
       - name: Upload JSON artifacts
         if: steps.find_json.outputs.json_files != ''
         uses: actions/upload-artifact@v4
