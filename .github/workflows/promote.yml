@@ -22,8 +22,7 @@ jobs:
         uses: dawidd6/action-download-artifact@v11
         with:
           workflow: artifact.yml
-          name_is_regexp: true
-          name: "artifacts-.*"
+          name: "artifacts-${{ github.event.pull_request.head.sha }}"
           commit: ${{ github.event.pull_request.head.sha }}
           path: ./artifact
 
@@ -67,9 +66,8 @@ jobs:
       - name: Get artifact from commit SHA  
         uses: dawidd6/action-download-artifact@v11
         with:
-          workflow: generate-artifact.yml
-          name_is_regexp: true
-          name: "artifacts-.*"
+          workflow: artifact.yml
+          name: "artifacts-${{ github.event.pull_request.head.sha }}"
           commit: ${{ github.event.pull_request.head.sha }}
           path: ./artifact
 
