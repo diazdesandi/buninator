@@ -23,35 +23,51 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Find feature branch commit (artifact commit)
-        id: find_artifact_commit
-        run: |
-          MERGE_COMMIT="${{ github.event.pull_request.head.sha }}"
-          echo "Merge commit: $MERGE_COMMIT"
+      - name: MAIN_SHA
+        run: echo "MAIN_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
 
-          FEATURE_COMMIT=$(git rev-parse ${MERGE_COMMIT}^1)
-          echo "Feature branch commit: $FEATURE_COMMIT"
-          echo "Expected artifact name: artifacts-$FEATURE_COMMIT"
-
-          echo "artifact_commit=$FEATURE_COMMIT" >> $GITHUB_OUTPUT
-
-      - name: Verify artifact exists
-        run: |
-          echo "🔍 Checking if artifact exists..."
-          ARTIFACT_NAME="artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
-          echo "Looking for: $ARTIFACT_NAME"
-
-          # List all artifacts to verify
-          echo "Available artifacts:"
-          gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | select(.name | startswith("artifacts-")) | {name: .name, created_at: .created_at}' || echo "Could not list artifacts"
-
-      - name: Get artifact from workflow run
-        uses: dawidd6/action-download-artifact@v11
+      - name: Get run ID and artifact name
+        id: resolve
+        uses: actions/github-script@v8
         with:
-          workflow: artifact.yml
-          name: "artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
-          commit: ${{ steps.find_artifact_commit.outputs.artifact_commit }}
+          script: |
+            const sha = process.env.MAIN_SHA;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            async function findRunFor(event) {
+              const { data } = await github.request(
+                'GET /repos/{owner}/{repo}/actions/runs',
+                { owner, repo, head_sha: sha, event, per_page: 1 }
+              );
+              return data.workflow_runs?.[0]?.id || null;
+            }
+
+            // Try push, then merge_group
+            let runId = await findRunFor('push');
+            if (!runId) core.setFailed(`No workflow run found for ${sha} (push/merge_group)`);
+
+            // List artifacts
+            const { data: arts } = await github.request(
+              'GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts',
+              { owner, repo, run_id: runId, per_page: 100 }
+            );
+
+            // Get artifacts artifacts-${sha}
+            const name = `artifacts-${sha}`;
+            const artifact = arts.artifacts.find(a => a.name === name);
+            if (!artifact) core.setFailed(`Artifact ${name} not found on run ${runId}`);
+
+            core.setOutput('run_id', String(runId));
+            core.setOutput('artifact_name', name);
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ steps.resolve.outputs.run_id }}
+          name: ${{ steps.resolve.outputs.artifact_name }}
           path: ./artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -73,7 +89,6 @@ jobs:
 
       - name: Preview Changes
         id: preview
-        # run: buninator preview ${{ inputs.config_file }}
         run: |
           JSON_FILE=$(find ./artifact -name '*.json' | head -n 1)
           echo "Using config file: $JSON_FILE"
@@ -87,41 +102,51 @@ jobs:
       group: prod
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v5
+      - name: MAIN_SHA
+        run: echo "MAIN_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+
+      - name: Get run ID and artifact name
+        id: resolve
+        uses: actions/github-script@v8
         with:
-          fetch-depth: 0
+          script: |
+            const sha = process.env.MAIN_SHA;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
 
-      # REMADE USING BUNINATOR
-      - name: Find feature branch commit (artifact commit)
-        id: find_artifact_commit
-        run: |
-          MERGE_COMMIT="${{ github.event.pull_request.head.sha }}"
-          echo "Merge commit: $MERGE_COMMIT"
+            async function findRunFor(event) {
+              const { data } = await github.request(
+                'GET /repos/{owner}/{repo}/actions/runs',
+                { owner, repo, head_sha: sha, event, per_page: 1 }
+              );
+              return data.workflow_runs?.[0]?.id || null;
+            }
 
-          FEATURE_COMMIT=$(git rev-parse ${MERGE_COMMIT}^1)
-          echo "Feature branch commit: $FEATURE_COMMIT"
-          echo "Expected artifact name: artifacts-$FEATURE_COMMIT"
+            // Try push, then merge_group
+            let runId = await findRunFor('push');
+            if (!runId) core.setFailed(`No workflow run found for ${sha} (push/merge_group)`);
 
-          echo "artifact_commit=$FEATURE_COMMIT" >> $GITHUB_OUTPUT
+            // List artifacts
+            const { data: arts } = await github.request(
+              'GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts',
+              { owner, repo, run_id: runId, per_page: 100 }
+            );
 
-      - name: Verify artifact exists
-        run: |
-          echo "🔍 Checking if artifact exists..."
-          ARTIFACT_NAME="artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
-          echo "Looking for: $ARTIFACT_NAME"
+            // Get artifacts artifacts-${sha}
+            const name = `artifacts-${sha}`;
+            const artifact = arts.artifacts.find(a => a.name === name);
+            if (!artifact) core.setFailed(`Artifact ${name} not found on run ${runId}`);
 
-          # List all artifacts to verify
-          echo "Available artifacts:"
-          gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | select(.name | startswith("artifacts-")) | {name: .name, created_at: .created_at}' || echo "Could not list artifacts"
+            core.setOutput('run_id', String(runId));
+            core.setOutput('artifact_name', name);
 
-      - name: Get artifact from workflow run
-        uses: dawidd6/action-download-artifact@v11
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
-          workflow: artifact.yml
-          name: "artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
-          commit: ${{ steps.find_artifact_commit.outputs.artifact_commit }}
+          run-id: ${{ steps.resolve.outputs.run_id }}
+          name:    ${{ steps.resolve.outputs.artifact_name }}
           path: ./artifact
-
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: oven-sh/setup-bun@v2
         with:
