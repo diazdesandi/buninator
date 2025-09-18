@@ -21,24 +21,35 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Debug commit SHAs for artifact search
+      - name: Find feature branch commit (artifact commit)
+        id: find_artifact_commit
         run: |
-          echo "=== PROMOTE WORKFLOW DEBUG ==="
-          echo "github.sha: ${{ github.sha }}"
-          echo "github.event.pull_request.head.sha: ${{ github.event.pull_request.head.sha }}"
-          echo "github.event.pull_request.merge_commit_sha: ${{ github.event.pull_request.merge_commit_sha }}"
-          echo "github.event.pull_request.base.sha: ${{ github.event.pull_request.base.sha }}"
-          echo "Looking for artifact named: artifacts-???"
-          echo "Available artifacts:"
-          gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | select(.name | startswith("artifacts-")) | {name: .name, created_at: .created_at}'
-          echo "=========================="
+          # Get the merge commit from the PR context
+          MERGE_COMMIT="${{ github.event.pull_request.head.sha }}"
+          echo "Merge commit: $MERGE_COMMIT"
 
-      # REMADE USING BUNINATOR
+          # Get the first parent (should be a23d04c in your case)
+          FEATURE_COMMIT=$(git rev-parse ${MERGE_COMMIT}^1)
+          echo "Feature branch commit: $FEATURE_COMMIT"
+          echo "Expected artifact name: artifacts-$FEATURE_COMMIT"
+
+          echo "artifact_commit=$FEATURE_COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Verify artifact exists
+        run: |
+          echo "🔍 Checking if artifact exists..."
+          ARTIFACT_NAME="artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
+          echo "Looking for: $ARTIFACT_NAME"
+
+          # List all artifacts to verify
+          echo "Available artifacts:"
+          gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | select(.name | startswith("artifacts-")) | {name: .name, created_at: .created_at}' || echo "Could not list artifacts"
+
       - name: Get artifact from workflow run
         uses: dawidd6/action-download-artifact@v11
         with:
           workflow: artifact.yml
-          name: "artifacts-${{ github.event.pull_request.head.sha }}"
+          name: "artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
           commit: ${{ github.event.pull_request.head.sha }}
           path: ./artifact
 
@@ -78,15 +89,36 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      
-
-
       # REMADE USING BUNINATOR
-      - name: Get artifact from commit SHA  
+      - name: Find feature branch commit (artifact commit)
+        id: find_artifact_commit
+        run: |
+          # Get the merge commit from the PR context
+          MERGE_COMMIT="${{ github.event.pull_request.head.sha }}"
+          echo "Merge commit: $MERGE_COMMIT"
+
+          # Get the first parent (should be a23d04c in your case)
+          FEATURE_COMMIT=$(git rev-parse ${MERGE_COMMIT}^1)
+          echo "Feature branch commit: $FEATURE_COMMIT"
+          echo "Expected artifact name: artifacts-$FEATURE_COMMIT"
+
+          echo "artifact_commit=$FEATURE_COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Verify artifact exists
+        run: |
+          echo "🔍 Checking if artifact exists..."
+          ARTIFACT_NAME="artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
+          echo "Looking for: $ARTIFACT_NAME"
+
+          # List all artifacts to verify
+          echo "Available artifacts:"
+          gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | select(.name | startswith("artifacts-")) | {name: .name, created_at: .created_at}' || echo "Could not list artifacts"
+
+      - name: Get artifact from workflow run
         uses: dawidd6/action-download-artifact@v11
         with:
           workflow: artifact.yml
-          name: "artifacts-${{ github.event.pull_request.head.sha }}"
+          name: "artifacts-${{ steps.find_artifact_commit.outputs.artifact_commit }}"
           commit: ${{ github.event.pull_request.head.sha }}
           path: ./artifact
 
