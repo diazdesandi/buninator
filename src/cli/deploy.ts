@@ -11,7 +11,7 @@ const sha256Hex = async (file: string): Promise<string> => {
 };
 
 const deploy = async (file: string, expectedHash?: string) => {
-	const filename = Bun.file(file).name;
+	const filename = file.split("/").pop();
 	consola.info(`Uploading ${file} to gs://${bucket}/${filename}`);
 	if (expectedHash) {
 		const actualHash = await sha256Hex(file);
