@@ -3,7 +3,7 @@ import { $ } from "bun";
 import { consola } from "consola/basic";
 
 const preview = async (file: string) => {
-	const filename = Bun.file(file).name;
+	const filename = file.split("/").pop();
 	consola.info(`🔍 Preview: ${file} → gs://${bucket}/${filename}`);
 
 	// Show new config content
