@@ -31,7 +31,7 @@ program
 	.command("summary")
 	.alias("s")
 	.description("Generate a summary of the PR")
-	.option("-p, --pr <path>", "GitHub PR object as path")
+	.option("-c, --commit <commit>", "GitHub PR object as path")
 	.option("-f, --files <files>", "Changed JSON files (space/comma separated)")
 	.option("-r, --run-id <id>", "GitHub Actions run ID")
 	.action(async (options) => {
