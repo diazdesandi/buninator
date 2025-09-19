@@ -1,8 +1,7 @@
 name: Generate Artifact
 on:
-  pull_request:
+  push:
     branches: [main, master]
-    types: [closed]
 
 permissions:
   contents: read
@@ -17,21 +16,24 @@ jobs:
   build-artifact:
     runs-on: ubuntu-latest
     environment: test
-    if: ${{ github.event.pull_request.merged == true }}
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Find JSON files
         id: find_json
         run: |
-          echo "PR commit range:"
-          FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '\.json$' || true)
+          echo "Push commit range:"
+          BASE="${{ github.event.before }}"
+          HEAD="${{ github.sha }}"
+          echo "Base: $BASE"
+          echo "Head: $HEAD"
+          FILES=$(git diff --name-only "$BASE" "$HEAD" | grep '\.json$' || true)
           echo "Found JSON files: '$FILES'"
           echo "json_files=$FILES" >> $GITHUB_OUTPUT
           if [ -z "$FILES" ]; then
-            echo "No JSON files found in the PR."
+            echo "No JSON files found in this push."
             exit 0
           fi
 
@@ -48,19 +50,19 @@ jobs:
       - run: bun install && bun link
       
       - name: Generate summary
-        run: buninator summary --pr "$GITHUB_EVENT_PATH" --files "${{ steps.find_json.outputs.json_files }}" --run-id "${{ github.run_id }}"
+        run: buninator summary --commit "${{ github.sha }}" --files "${{ steps.find_json.outputs.json_files }}" --run-id "${{ github.run_id }}"
 
-      - name: Create prod PR for ${{ steps.find_json.outputs.json_files[0] }}
+      - name: Create prod PR
         run: |
           # Check if PR already exists
-          if gh pr list --base prod --head main | grep -q "Deploy to Production"; then
+          if gh pr list --base prod --head main --state open | grep -q "Deploy to Production"; then
             echo "Production PR already exists"
             exit 0
-          fi        
+          fi
 
           gh pr create \
             --base prod \
             --head main \
             --title "🚀 Deploy to Production - ${{ github.sha }}" \
-            --body "Deploying changes from PR #${{ github.event.pull_request.number }} to production" \
+            --body "Deploying changes from commit ${{ github.sha }} to production" \
             --label deployment,auto-created
