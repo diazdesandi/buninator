@@ -3,7 +3,8 @@ import { $ } from "bun";
 import { consola } from "consola/basic";
 
 const preview = async (file: string) => {
-	consola.info(`🔍 Preview: ${file} → gs://${bucket}/${file}`);
+	const filename = Bun.file(file).name;
+	consola.info(`🔍 Preview: ${file} → gs://${bucket}/${filename}`);
 
 	// Show new config content
 	const config = await Bun.file(`${file}`).json();
@@ -12,7 +13,7 @@ const preview = async (file: string) => {
 
 	// Show current config if exists
 	try {
-		const current = await $`gsutil cat gs://${bucket}/${file}`.quiet();
+		const current = await $`gsutil cat gs://${bucket}/${filename}`.quiet();
 		consola.info("\n📄 CURRENT CONFIG:");
 		const currentConfig = JSON.parse(current.stdout.toString());
 		const lines = JSON.stringify(currentConfig, null, 2)

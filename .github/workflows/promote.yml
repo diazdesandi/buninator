@@ -23,76 +23,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: MAIN_SHA
+      - name: Set SHA
         run: echo "MAIN_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
 
-      - name: Get run ID and artifact name
-        id: resolve
-        uses: actions/github-script@v8
+      - name: Setup Buninator
+        id: setup
+        uses: ./.github/actions/setup-buninator
         with:
-          script: |
-            const sha = process.env.MAIN_SHA;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            async function findRunFor(event) {
-              const { data } = await github.request(
-                'GET /repos/{owner}/{repo}/actions/runs',
-                { owner, repo, head_sha: sha, event, per_page: 1 }
-              );
-              return data.workflow_runs?.[0]?.id || null;
-            }
-
-            // Try push, then merge_group
-            let runId = await findRunFor('push');
-            if (!runId) core.setFailed(`No workflow run found for ${sha} (push/merge_group)`);
-
-            // List artifacts
-            const { data: arts } = await github.request(
-              'GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts',
-              { owner, repo, run_id: runId, per_page: 100 }
-            );
-
-            // Get artifacts artifacts-${sha}
-            const name = `artifacts-${sha}`;
-            const artifact = arts.artifacts.find(a => a.name === name);
-            if (!artifact) core.setFailed(`Artifact ${name} not found on run ${runId}`);
-
-            core.setOutput('run_id', String(runId));
-            core.setOutput('artifact_name', name);
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ steps.resolve.outputs.run_id }}
-          name: ${{ steps.resolve.outputs.artifact_name }}
-          path: ./artifact
+          main-sha: ${{ env.MAIN_SHA }}
+          gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install && bun link
-
-      - name: Authenticate with Service Account
-        uses: google-github-actions/auth@v3
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v3
 
       - name: Verify Service Account Access
         run: |
           echo "Bucket access:"
-          gsutil ls gs://${{ env.BUCKET_NAME }}/ && echo "Bucket access verified"
+          gsutil ls gs://${{ secrets.BUCKET_NAME }}/ && echo "Bucket access verified"
 
       - name: Preview Changes
-        id: preview
-        run: |
-          JSON_FILE=$(find ./artifact -name '*.json' | head -n 1)
-          echo "Using config file: $JSON_FILE"
-          buninator preview "$JSON_FILE"
+        run: buninator preview "${{ steps.setup.outputs.config-file }}"
 
   deploy:
     if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
@@ -106,74 +54,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: MAIN_SHA
+      - name: Set SHA
         run: echo "MAIN_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
 
-      - name: Get run ID and artifact name
-        id: resolve
-        uses: actions/github-script@v8
+      - name: Setup Buninator
+        id: setup
+        uses: ./.github/actions/setup-buninator
         with:
-          script: |
-            const sha = process.env.MAIN_SHA;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            async function findRunFor(event) {
-              const { data } = await github.request(
-                'GET /repos/{owner}/{repo}/actions/runs',
-                { owner, repo, head_sha: sha, event, per_page: 1 }
-              );
-              return data.workflow_runs?.[0]?.id || null;
-            }
-
-            // Try push, then merge_group
-            let runId = await findRunFor('push');
-            if (!runId) core.setFailed(`No workflow run found for ${sha} (push/merge_group)`);
-
-            // List artifacts
-            const { data: arts } = await github.request(
-              'GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts',
-              { owner, repo, run_id: runId, per_page: 100 }
-            );
-
-            // Get artifacts artifacts-${sha}
-            const name = `artifacts-${sha}`;
-            const artifact = arts.artifacts.find(a => a.name === name);
-            if (!artifact) core.setFailed(`Artifact ${name} not found on run ${runId}`);
-
-            core.setOutput('run_id', String(runId));
-            core.setOutput('artifact_name', name);
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ steps.resolve.outputs.run_id }}
-          name: ${{ steps.resolve.outputs.artifact_name }}
-          path: ./artifact
+          main-sha: ${{ env.MAIN_SHA }}
+          gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install && bun link
-
-      - name: Authenticate with Service Account
-        uses: google-github-actions/auth@v3
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v3
 
       - name: Deploy Configuration
         run: |
-          CONFIG_FILE=$(find ./artifact -name '*.json' | head -n 1)
-          echo "🚀 Deploying $CONFIG_FILE to gs://${{ env.BUCKET_NAME }}/$(basename $CONFIG_FILE)"
+          CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
+          echo "🚀 Deploying $CONFIG_FILE to gs://${{ secrets.BUCKET_NAME }}/$(basename $CONFIG_FILE)"
           buninator deploy "$CONFIG_FILE"
 
       - name: Generate Deployment Summary
         run: |
-          CONFIG_FILE=$(find ./artifact -name '*.json' | head -n 1)  # Define here
+          CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
           cat >> $GITHUB_STEP_SUMMARY << EOF
           # ✅ Deployment Successful
           **File:** \`$(basename $CONFIG_FILE)\`

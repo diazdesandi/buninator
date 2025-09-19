@@ -26,7 +26,7 @@ program
 	});
 
 
-// buninator action --pr "$GITHUB_EVENT_PATH" --files "file1.json,file2.json" --run-id "$GITHUB_RUN_ID"
+// buninator action --commit "$GITHUB_EVENT_PATH" --files "file1.json,file2.json" --run-id "$GITHUB_RUN_ID"
 program
 	.command("summary")
 	.alias("s")

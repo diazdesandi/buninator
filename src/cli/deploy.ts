@@ -11,7 +11,8 @@ const sha256Hex = async (file: string): Promise<string> => {
 };
 
 const deploy = async (file: string, expectedHash?: string) => {
-	consola.info(`Uploading ${file} to gs://${bucket}/${file}.json`);
+	const filename = Bun.file(file).name;
+	consola.info(`Uploading ${file} to gs://${bucket}/${filename}`);
 	if (expectedHash) {
 		const actualHash = await sha256Hex(file);
 
@@ -22,9 +23,14 @@ const deploy = async (file: string, expectedHash?: string) => {
 			throw new Error("Hash mismatch");
 		}
 	}
-	await $`gsutil cp ${file} gs://${bucket}/${file}.json`;
-	await $`gsutil stat gs://${bucket}/${file}.json`;
-	consola.info(`✅ Deployed ${file}!`);
+	try {
+		await $`gsutil cp ${file} gs://${bucket}/${filename}`;
+		await $`gsutil stat gs://${bucket}/${filename}`;
+		consola.info(`✅ Deployed ${file}!`);
+	} catch (err) {
+		consola.error(`❌ Deployment failed: ${err}`);
+		throw err;
+	}
 };
 
 export { deploy };
