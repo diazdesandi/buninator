@@ -102,6 +102,10 @@ jobs:
       group: prod
       cancel-in-progress: true
     steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - name: MAIN_SHA
         run: echo "MAIN_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
 
@@ -144,7 +148,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           run-id: ${{ steps.resolve.outputs.run_id }}
-          name:    ${{ steps.resolve.outputs.artifact_name }}
+          name: ${{ steps.resolve.outputs.artifact_name }}
           path: ./artifact
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
