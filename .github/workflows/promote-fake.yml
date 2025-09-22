@@ -6,6 +6,14 @@ on:
         description: 'Commit SHA to find artifacts for and deploy'
         required: true
         type: string
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - preview
+          - production
+        default: preview
       use_fake_gcs:
         description: 'Use fake GCS server for testing'
         required: false
@@ -25,20 +33,23 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment == 'production' && 'prod' || '' }}
     concurrency:
-      group: fake-gcs-server
+      group: ${{ github.event.inputs.environment }}
       cancel-in-progress: false
     services:
       fake-gcs-server:
         image: ${{ github.event.inputs.use_fake_gcs == 'true' && 'fsouza/fake-gcs-server' || '' }}
         ports:
           - 4443:4443
+        env:
+          PORT: 4443
         options: >-
           ${{ github.event.inputs.use_fake_gcs == 'true' && 
-          '--health-cmd "curl -f http://localhost:4443/storage/v1/b || exit 1"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 3' || '' }}
+          '--health-cmd "curl -f -k https://localhost:4443/storage/v1/b || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5' || '' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -64,16 +75,16 @@ jobs:
         run: |
           echo "🔧 Setting up fake GCS server..."
           
-          # Wait for fake-gcs-server to be ready
-          timeout 60 bash -c 'until curl -f http://localhost:4443/storage/v1/b; do sleep 2; done'
+          # Wait for fake-gcs-server to be ready (using HTTPS)
+          timeout 60 bash -c 'until curl -f -k https://localhost:4443/storage/v1/b; do sleep 2; done'
           
-          # Create test bucket
-          curl -X POST "http://localhost:4443/storage/v1/b" \
+          # Create test bucket (using HTTPS)
+          curl -k -X POST "https://localhost:4443/storage/v1/b" \
             -H "Content-Type: application/json" \
             -d '{"name": "${{ secrets.BUCKET_NAME }}"}'
           
-          # Set environment for fake GCS
-          echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
+          # Set environment for fake GCS (HTTP for client libraries)
+          echo "STORAGE_EMULATOR_HOST=http://localhost:4443" >> $GITHUB_ENV
           echo "GOOGLE_CLOUD_PROJECT=test-project" >> $GITHUB_ENV
           
           echo "✅ Fake GCS server configured"
@@ -90,7 +101,7 @@ jobs:
         run: |
           if [[ "${{ github.event.inputs.use_fake_gcs }}" == "true" ]]; then
             echo "🧪 Testing fake GCS access:"
-            curl "http://localhost:4443/storage/v1/b/${{ secrets.BUCKET_NAME }}" || echo "Bucket ready for use"
+            curl -k "https://localhost:4443/storage/v1/b/${{ secrets.BUCKET_NAME }}" || echo "Bucket ready for use"
           else
             echo "☁️ Testing real GCS access:"
           fi
@@ -125,8 +136,8 @@ jobs:
           FILENAME=$(basename "$CONFIG_FILE")
           
           if [[ "${{ github.event.inputs.use_fake_gcs }}" == "true" ]]; then
-            # Check fake GCS via REST API
-            if curl -f "http://localhost:4443/storage/v1/b/${{ secrets.BUCKET_NAME }}/o/${FILENAME}"; then
+            # Check fake GCS via REST API (using HTTPS)
+            if curl -f -k "https://localhost:4443/storage/v1/b/${{ secrets.BUCKET_NAME }}/o/${FILENAME}"; then
               echo "✅ File successfully uploaded to fake GCS"
             else
               echo "❌ File not found in fake GCS"
@@ -165,3 +176,13 @@ jobs:
           $(git log --oneline -n 1 ${{ env.MAIN_SHA }})
           \`\`\`
           EOF
+
+      - name: Optional Real Deployment After Test
+        if: ${{ github.event.inputs.environment == 'production' && github.event.inputs.use_fake_gcs == 'true' }}
+        run: |
+          echo "🤔 This was a test deployment using fake GCS."
+          echo "To deploy to real production GCS:"
+          echo "1. Re-run this workflow with use_fake_gcs=false"
+          echo "2. Or add a manual approval step here"
+          echo ""
+          echo "Would you like to proceed? (This step is informational only)"
