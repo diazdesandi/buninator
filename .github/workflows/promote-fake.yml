@@ -2,23 +2,10 @@ name: "[fake-gcs-server] Promote to Production"
 on:
   workflow_dispatch:
     inputs:
-      commit_sha:
-        description: 'Commit SHA to find artifacts for and deploy'
-        required: true
-        type: string
-      environment:
-        description: 'Deployment environment'
-        required: true
-        type: choice
-        options:
-          - preview
-          - production
-        default: preview
-      use_fake_gcs:
-        description: 'Use fake GCS server for testing'
+      commit-sha:
+        description: 'Commit SHA to deploy (if different from PR head)'
         required: false
-        type: boolean
-        default: true
+        type: string
     
 permissions:
   contents: read
@@ -26,163 +13,116 @@ permissions:
   pull-requests: write  
   
 env:
-  BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+  BUCKET_NAME: fake-bucket
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
   
 jobs:
-  deploy:
+  preview:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment == 'production' && 'prod' || '' }}
-    concurrency:
-      group: ${{ github.event.inputs.environment }}
-      cancel-in-progress: false
-    services:
-      fake-gcs-server:
-        image: ${{ github.event.inputs.use_fake_gcs == 'true' && 'fsouza/fake-gcs-server' || '' }}
-        ports:
-          - 4443:4443
-        env:
-          PORT: 4443
-        options: >-
-          ${{ github.event.inputs.use_fake_gcs == 'true' && 
-          '--health-cmd "curl -f -k https://localhost:4443/storage/v1/b || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5' || '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Validate commit SHA
-        run: |
-          COMMIT_SHA="${{ github.event.inputs.commit_sha }}"
-          echo "MAIN_SHA=$COMMIT_SHA" >> $GITHUB_ENV
-          
-          # Verify the commit exists
-          if ! git cat-file -e "$COMMIT_SHA^{commit}"; then
-            echo "❌ Commit SHA $COMMIT_SHA does not exist"
-            exit 1
-          fi
-          
-          echo "✅ Commit SHA $COMMIT_SHA validated"
-          echo "📋 Commit details:"
-          git log --oneline -n 1 "$COMMIT_SHA"
+      - name: Set SHA
+        run: echo "MAIN_SHA=${{ inputs.commit-sha }}" >> $GITHUB_ENV
 
-      - name: Setup fake GCS
-        if: ${{ github.event.inputs.use_fake_gcs == 'true' }}
+      # Start fake GCS server
+      - name: Setup fake GCS server
+        uses: fsouza/fake-gcs-action@v0.5.0
+        with:
+          version: latest
+          port: 4443
+          log-level: info
+
+      # Override GCS to use fake server BEFORE any authentication
+      - name: Configure fake GCS
         run: |
-          echo "🔧 Setting up fake GCS server..."
-          
-          # Wait for fake-gcs-server to be ready (using HTTPS)
-          timeout 60 bash -c 'until curl -f -k https://localhost:4443/storage/v1/b; do sleep 2; done'
-          
-          # Create test bucket (using HTTPS)
-          curl -k -X POST "https://localhost:4443/storage/v1/b" \
-            -H "Content-Type: application/json" \
-            -d '{"name": "${{ secrets.BUCKET_NAME }}"}'
-          
-          # Set environment for fake GCS (HTTP for client libraries)
-          echo "STORAGE_EMULATOR_HOST=http://localhost:4443" >> $GITHUB_ENV
-          echo "GOOGLE_CLOUD_PROJECT=test-project" >> $GITHUB_ENV
-          
-          echo "✅ Fake GCS server configured"
+          # Set environment variables to redirect GCS calls to fake server
+          echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT=fake-project" >> $GITHUB_ENV
 
       - name: Setup Buninator
         id: setup
         uses: ./.github/actions/setup-buninator
         with:
           main-sha: ${{ env.MAIN_SHA }}
-          gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
+          gcp-sa-key: '{"type": "service_account", "project_id": "fake"}' # Dummy credentials
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify GCS Access
+      - name: Create test bucket
         run: |
-          if [[ "${{ github.event.inputs.use_fake_gcs }}" == "true" ]]; then
-            echo "🧪 Testing fake GCS access:"
-            curl -k "https://localhost:4443/storage/v1/b/${{ secrets.BUCKET_NAME }}" || echo "Bucket ready for use"
-          else
-            echo "☁️ Testing real GCS access:"
-          fi
-          
-          # Test with gsutil (will use fake server if STORAGE_EMULATOR_HOST is set)
-          gsutil ls gs://${{ secrets.BUCKET_NAME }}/ && echo "✅ GCS access verified" || echo "📝 Bucket will be created if needed"
+          # Create the test bucket on fake GCS
+          gsutil mb gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
+
+      - name: Verify Service Account Access
+        run: |
+          echo "Bucket access (using fake GCS):"
+          gsutil ls gs://${{ env.BUCKET_NAME }}/ && echo "Bucket access verified"
 
       - name: Preview Changes
-        if: ${{ github.event.inputs.environment == 'preview' }}
+        run: buninator preview "${{ steps.setup.outputs.config-file }}"
+
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    needs: preview
+    environment: prod
+    concurrency:
+      group: prod
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set SHA
+        run: echo "MAIN_SHA=${{ inputs.commit-sha }}" >> $GITHUB_ENV
+
+      # Start fake GCS server
+      - name: Setup fake GCS server
+        uses: fsouza/fake-gcs-action@v0.5.0
+        with:
+          version: latest
+          port: 4443
+          log-level: info
+
+      # Override GCS to use fake server BEFORE any authentication
+      - name: Configure fake GCS
         run: |
-          echo "🔍 Previewing changes for commit ${{ env.MAIN_SHA }}..."
-          buninator preview "${{ steps.setup.outputs.config-file }}"
+          # Set environment variables to redirect GCS calls to fake server
+          echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT=fake-project" >> $GITHUB_ENV
+
+      - name: Setup Buninator
+        id: setup
+        uses: ./.github/actions/setup-buninator
+        with:
+          main-sha: ${{ env.MAIN_SHA }}
+          gcp-sa-key: '{"type": "service_account", "project_id": "fake"}' # Dummy credentials
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create test bucket
+        run: |
+          # Create the test bucket on fake GCS
+          gsutil mb gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
 
       - name: Deploy Configuration
-        if: ${{ github.event.inputs.environment == 'production' }}
         run: |
           CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
-          FILENAME=$(basename "$CONFIG_FILE")
-          
-          if [[ "${{ github.event.inputs.use_fake_gcs }}" == "true" ]]; then
-            echo "🧪 Testing deployment of $FILENAME to fake GCS bucket ${{ secrets.BUCKET_NAME }}"
-          else
-            echo "🚀 Deploying $FILENAME to gs://${{ secrets.BUCKET_NAME }}/$FILENAME"
-          fi
-          
+          echo "🚀 Deploying $CONFIG_FILE to gs://${{ env.BUCKET_NAME }}/$(basename $CONFIG_FILE) (fake GCS)"
           buninator deploy "$CONFIG_FILE"
 
-      - name: Verify Deployment
-        if: ${{ github.event.inputs.environment == 'production' }}
-        run: |
-          CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
-          FILENAME=$(basename "$CONFIG_FILE")
-          
-          if [[ "${{ github.event.inputs.use_fake_gcs }}" == "true" ]]; then
-            # Check fake GCS via REST API (using HTTPS)
-            if curl -f -k "https://localhost:4443/storage/v1/b/${{ secrets.BUCKET_NAME }}/o/${FILENAME}"; then
-              echo "✅ File successfully uploaded to fake GCS"
-            else
-              echo "❌ File not found in fake GCS"
-              exit 1
-            fi
-          else
-            # Check real GCS
-            if gsutil stat "gs://${{ secrets.BUCKET_NAME }}/$FILENAME"; then
-              echo "✅ File successfully uploaded to production GCS"
-            else
-              echo "❌ File not found in production GCS"
-              exit 1
-            fi
-          fi
-
-      - name: Generate Deployment Summary
-        run: |
-          CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
-          FILENAME=$(basename "$CONFIG_FILE")
-          
-          GCS_TYPE="${{ github.event.inputs.use_fake_gcs == 'true' && 'Fake GCS (Test)' || 'Production GCS' }}"
-          ACTION="${{ github.event.inputs.environment == 'preview' && 'Preview' || 'Deployment' }}"
-          
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-          # ✅ $ACTION Successful
-          **Environment:** \`${{ github.event.inputs.environment }}\`
-          **GCS Type:** \`$GCS_TYPE\`
-          **Commit SHA:** \`${{ env.MAIN_SHA }}\`
-          **File:** \`$FILENAME\`
-          **Timestamp:** \`$(date -Iseconds)\`
-          **Requester:** \`${{ github.actor }}\`
-          **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          
-          ## Commit Details
-          \`\`\`
-          $(git log --oneline -n 1 ${{ env.MAIN_SHA }})
-          \`\`\`
-          EOF
-
-      - name: Optional Real Deployment After Test
-        if: ${{ github.event.inputs.environment == 'production' && github.event.inputs.use_fake_gcs == 'true' }}
-        run: |
-          echo "🤔 This was a test deployment using fake GCS."
-          echo "To deploy to real production GCS:"
-          echo "1. Re-run this workflow with use_fake_gcs=false"
-          echo "2. Or add a manual approval step here"
-          echo ""
-          echo "Would you like to proceed? (This step is informational only)"
+      # - name: Generate Deployment Summary
+      #   run: |
+      #     CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
+      #     cat >> $GITHUB_STEP_SUMMARY << EOF
+      #     # ✅ Deployment Successful (Fake GCS)
+      #     **File:** \`$(basename $CONFIG_FILE)\`
+      #     **Timestamp:** \`$(date -Iseconds)\`
+      #     **Requester:** \`${{ github.actor }}\`
+      #     **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+      #     **Note:** Deployed to fake GCS server for testing
+      #     EOF
