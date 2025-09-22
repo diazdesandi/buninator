@@ -31,7 +31,7 @@ jobs:
         uses: ./.github/actions/setup-buninator
         with:
           main-sha: ${{ inputs.commit_sha }}
-          gcp-sa-key: "{}"
+          gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start fake-gcs-server
@@ -84,7 +84,7 @@ jobs:
         uses: ./.github/actions/setup-buninator
         with:
           main-sha: ${{ inputs.commit_sha }}
-          gcp-sa-key: "{}"
+          gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start fake-gcs-server
