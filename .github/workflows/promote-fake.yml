@@ -34,6 +34,15 @@ jobs:
           gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Clear GCP authentication for fake GCS
+        run: |
+          # Clear GCP authentication so gsutil uses .boto file
+          unset GOOGLE_APPLICATION_CREDENTIALS
+          gcloud auth revoke --all || true
+          # Ensure BOTO_PATH is set for fake GCS
+          export BOTO_PATH=$PWD/.boto
+          echo "BOTO_PATH=$PWD/.boto" >> $GITHUB_ENV
+
       - name: Start fake-gcs-server
         run: |
           docker run -d --rm --name fake-gcs \
@@ -86,6 +95,15 @@ jobs:
           main-sha: ${{ inputs.commit_sha }}
           gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clear GCP authentication for fake GCS
+        run: |
+          # Clear GCP authentication so gsutil uses .boto file
+          unset GOOGLE_APPLICATION_CREDENTIALS
+          gcloud auth revoke --all || true
+          # Ensure BOTO_PATH is set for fake GCS
+          export BOTO_PATH=$PWD/.boto
+          echo "BOTO_PATH=$PWD/.boto" >> $GITHUB_ENV
 
       - name: Start fake-gcs-server
         run: |
