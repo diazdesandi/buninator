@@ -4,10 +4,15 @@ import { consola } from "consola";
 
 // Implement SHA-256 hashing to verify file integrity before deployment
 const sha256Hex = async (file: string): Promise<string> => {
-	const ab = await Bun.file(file).arrayBuffer();
-	const hashBuffer = await crypto.subtle.digest("SHA-256", ab);
-	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+	try {
+		const ab = await Bun.file(file).arrayBuffer();
+		const hashBuffer = await crypto.subtle.digest("SHA-256", ab);
+		const hashArray = Array.from(new Uint8Array(hashBuffer));
+		return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+	} catch (error) {
+		consola.error(`Failed to calculate hash for ${file}`, { file, error });
+		throw error;
+	}
 };
 
 const deploy = async (file: string, expectedHash?: string) => {
