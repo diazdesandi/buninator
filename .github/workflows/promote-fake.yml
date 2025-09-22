@@ -1,0 +1,118 @@
+name: "[fake-gcs-server] Promote to Production"
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        description: "(Optional) Name of the artifact to deploy to fake-gcs-server"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write  
+  
+env:
+  BUCKET_NAME: fake-bucket
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+jobs:
+  preview:
+    name: Preview (manual)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Buninator
+        id: setup
+        uses: ./.github/actions/setup-buninator
+        with:
+          main-sha: ${{ github.sha }}
+          gcp-sa-key: "{}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Preview Changes
+        run: buninator preview "${{ steps.setup.outputs.config-file }}"
+
+  deploy:
+    name: Deploy to fake-gcs-server (manual)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Buninator (CLI only)
+        id: setup
+        uses: ./.github/actions/setup-buninator
+        with:
+          main-sha: ${{ github.sha }}
+          gcp-sa-key: "{}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Google Cloud SDK (gsutil)
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: "gsutil" 
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: ./artifact
+
+      - name: Start fake-gcs-server
+        run: |
+          docker run -d --rm --name fake-gcs \
+            -p 4443:4443 \
+            fsouza/fake-gcs-server:latest \
+            -scheme http -port 4443
+          for i in {1..30}; do
+            if curl -s http://localhost:4443/storage/v1/b >/dev/null; then
+              echo "fake-gcs-server is up"; break; fi; sleep 0.5; done
+
+      - name: Configure gsutil for fake-gcs-server
+        run: |
+          cat > .boto << 'EOF'
+          [Credentials]
+          use_anonymous = True
+
+          [GSUtil]
+          json_api_host = localhost:4443
+          json_api_scheme = http
+          EOF
+          echo "BOTO_PATH=$PWD/.boto" >> $GITHUB_ENV
+
+      - name: Create bucket on fake-gcs-server
+        run: |
+          gsutil mb gs://${{ env.BUCKET_NAME }} || true
+          gsutil ls -L gs://${{ env.BUCKET_NAME }} || true
+
+      - name: Deploy artifact using buninator to fake-gcs-server
+        run: |
+          FILE_PATH=$(find ./artifact -type f -maxdepth 1 | head -n1)
+          if [ -z "$FILE_PATH" ]; then echo "No file found in artifact" && exit 1; fi
+          echo "Deploying $FILE_PATH to fake-gcs-server bucket ${{ env.BUCKET_NAME }}"
+          buninator deploy "$FILE_PATH"
+          gsutil ls -l gs://${{ env.BUCKET_NAME }}/
+
+      - name: Generate Deployment Summary
+        run: |
+          FILE_PATH=$(find ./artifact -type f -maxdepth 1 | head -n1)
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # ✅ Fake Deployment Successful
+          **Artifact:** \`$(basename "$FILE_PATH")\`
+          **Bucket:** \`${{ env.BUCKET_NAME }}\`
+          **Timestamp:** \`$(date -Iseconds)\`
+          **Requester:** \`${{ github.actor }}\`
+          **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          EOF
+
+      - name: Stop fake-gcs-server
+        if: always()
+        run: |
+          docker stop fake-gcs || true
