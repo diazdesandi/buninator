@@ -21,9 +21,12 @@ jobs:
     name: Preview (manual)
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' }}
+    outputs:
+      config-file: ${{ steps.setup.outputs.config-file }}
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
 
       - name: Setup Buninator
@@ -39,7 +42,6 @@ jobs:
           # Clear GCP authentication so gsutil uses .boto file
           unset GOOGLE_APPLICATION_CREDENTIALS
           gcloud auth revoke --all || true
-          # BOTO_PATH will be set after .boto is written
 
       - name: Start fake-gcs-server
         run: |
@@ -47,9 +49,21 @@ jobs:
             -p 4443:4443 \
             fsouza/fake-gcs-server:latest \
             -scheme http -port 4443
+          
+          # Wait for server to be ready with timeout
+          echo "Waiting for fake-gcs-server to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:4443/storage/v1/b >/dev/null; then
-              echo "fake-gcs-server is up"; break; fi; sleep 0.5; done
+            if curl -sf http://localhost:4443/storage/v1/b >/dev/null 2>&1; then
+              echo "fake-gcs-server is up and ready"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "fake-gcs-server failed to start within 15 seconds"
+              docker logs fake-gcs
+              exit 1
+            fi
+            sleep 0.5
+          done
 
       - name: Configure gsutil for fake-gcs-server
         run: |
@@ -63,12 +77,13 @@ jobs:
           json_api_port = 4443
           json_api_scheme = http
           EOF
+          export BOTO_PATH="$PWD/.boto"
           echo "BOTO_PATH=$PWD/.boto" >> $GITHUB_ENV
 
       - name: Create bucket on fake-gcs-server
         run: |
-          gsutil mb gs://${{ env.BUCKET_NAME }} || true
-          gsutil ls -L gs://${{ env.BUCKET_NAME }} || true
+          gsutil mb gs://${{ env.BUCKET_NAME }} || echo "Bucket may already exist"
+          gsutil ls -L gs://${{ env.BUCKET_NAME }} || echo "Failed to list bucket"
 
       - name: Preview Changes
         run: buninator preview "${{ steps.setup.outputs.config-file }}"
@@ -76,7 +91,8 @@ jobs:
       - name: Stop fake-gcs-server
         if: always()
         run: |
-          docker stop fake-gcs || true
+          docker stop fake-gcs 2>/dev/null || true
+          docker rm fake-gcs 2>/dev/null || true
 
   deploy:
     name: Deploy to fake-gcs-server (manual)
@@ -86,6 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
 
       - name: Setup Buninator
@@ -101,7 +118,6 @@ jobs:
           # Clear GCP authentication so gsutil uses .boto file
           unset GOOGLE_APPLICATION_CREDENTIALS
           gcloud auth revoke --all || true
-          # BOTO_PATH will be set after .boto is written
 
       - name: Start fake-gcs-server
         run: |
@@ -109,9 +125,21 @@ jobs:
             -p 4443:4443 \
             fsouza/fake-gcs-server:latest \
             -scheme http -port 4443
+          
+          # Wait for server to be ready with timeout
+          echo "Waiting for fake-gcs-server to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:4443/storage/v1/b >/dev/null; then
-              echo "fake-gcs-server is up"; break; fi; sleep 0.5; done
+            if curl -sf http://localhost:4443/storage/v1/b >/dev/null 2>&1; then
+              echo "fake-gcs-server is up and ready"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "fake-gcs-server failed to start within 15 seconds"
+              docker logs fake-gcs
+              exit 1
+            fi
+            sleep 0.5
+          done
 
       - name: Configure gsutil for fake-gcs-server
         run: |
@@ -125,31 +153,35 @@ jobs:
           json_api_port = 4443
           json_api_scheme = http
           EOF
+          export BOTO_PATH="$PWD/.boto"
           echo "BOTO_PATH=$PWD/.boto" >> $GITHUB_ENV
 
       - name: Create bucket on fake-gcs-server
         run: |
-          gsutil mb gs://${{ env.BUCKET_NAME }} || true
-          gsutil ls -L gs://${{ env.BUCKET_NAME }} || true
+          gsutil mb gs://${{ env.BUCKET_NAME }} || echo "Bucket may already exist"
+          gsutil ls -L gs://${{ env.BUCKET_NAME }} || echo "Failed to list bucket"
 
       - name: Deploy artifact using buninator to fake-gcs-server
         run: |
           echo "Deploying ${{ steps.setup.outputs.config-file }} to fake-gcs-server bucket ${{ env.BUCKET_NAME }}"
           buninator deploy "${{ steps.setup.outputs.config-file }}"
+          echo "Listing deployed files:"
           gsutil ls -l gs://${{ env.BUCKET_NAME }}/
 
       - name: Generate Deployment Summary
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
           # ✅ Fake Deployment Successful
-          **File:** \`$(basename "${{ steps.setup.outputs.config-file }}")\`
-          **Bucket:** \`${{ env.BUCKET_NAME }}\`
-          **Timestamp:** \`$(date -Iseconds)\`
-          **Requester:** \`${{ github.actor }}\`
-          **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          **File:** `$(basename "${{ steps.setup.outputs.config-file }}")`
+          **Bucket:** `${{ env.BUCKET_NAME }}`
+          **Commit:** `${{ inputs.commit_sha }}`
+          **Timestamp:** `$(date -Iseconds)`
+          **Requester:** `${{ github.actor }}`
+          **Workflow:** [`${{ github.run_id }}`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
           EOF
 
       - name: Stop fake-gcs-server
         if: always()
         run: |
-          docker stop fake-gcs || true
+          docker stop fake-gcs 2>/dev/null || true
+          docker rm fake-gcs 2>/dev/null || true
