@@ -36,7 +36,7 @@ jobs:
         id: artifact
         uses: ./.github/actions/handle-artifact
         with:
-          commit-sha: ${{ inputs.commit-sha }}
+          main-sha: ${{ inputs.commit-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify bucket access
@@ -73,7 +73,7 @@ jobs:
         id: artifact
         uses: ./.github/actions/handle-artifact
         with:
-          commit-sha: ${{ inputs.commit-sha }}
+          main-sha: ${{ inputs.commit-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy file
