@@ -22,15 +22,8 @@ runs:
 
     - name: Get run ID and artifact name
       id: resolve
-      uses: actions/github-script@v8
-      with:
-        github-token: ${{ inputs.github-token }}
-        script: |
-          buninator find \
-          --sha ${{ inputs.main-sha }} \
-          --token ${{ inputs.github-token }} \
-          --owner ${{ github.repository_owner }} \
-          --repo ${{ github.event.repository.name }}
+      run: buninator find --sha ${{ inputs.main-sha }} --token ${{ inputs.github-token }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }}
+      shell: bash
 
     - name: Download artifact
       uses: actions/download-artifact@v4
