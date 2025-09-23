@@ -18,7 +18,7 @@ runs:
   using: 'composite'
   steps:
     - name: Setup Bun
-      uses: ./github/actions/setup-bun
+      uses: ./.github/actions/setup-bun
 
     - name: Get run ID and artifact name
       id: resolve
