@@ -6,6 +6,7 @@ on:
         description: 'Commit SHA to deploy'
         required: true
         type: string
+        default: 0fbdabf55f9326ac71233b67ecb067309a78c41a
     
 permissions:
   contents: read
@@ -43,14 +44,6 @@ jobs:
           echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
           echo "GOOGLE_CLOUD_PROJECT=fake-project" >> $GITHUB_ENV
           
-          # Verify fake GCS server is running
-          echo "Testing fake GCS server connectivity..."
-          curl -f http://localhost:4443/storage/v1/b || echo "Fake GCS server not responding via HTTP"
-          
-          # Try alternative connectivity tests
-          echo "Testing direct socket connection..."
-          nc -z localhost 4443 && echo "Port 4443 is open" || echo "Port 4443 is not accessible"
-          
           # Configure gsutil to use fake GCS server
           mkdir -p ~/.config/gcloud
           cat > ~/.boto << EOF
@@ -61,6 +54,9 @@ jobs:
           [Boto]
           https_validate_certificates = False
           EOF
+          
+          # Configure gcloud project
+          gcloud config set project fake-project || true
           
           echo "Created .boto configuration:"
           cat ~/.boto
@@ -139,11 +135,11 @@ jobs:
           echo "Creating bucket with fake GCS configuration..."
           echo "Bucket name: ${{ env.BUCKET_NAME }}"
           echo "Attempting to create bucket..."
-          if gsutil mb gs://${{ env.BUCKET_NAME }}/; then
+          if gsutil -m mb -p fake-project gs://${{ env.BUCKET_NAME }}/; then
             echo "✅ Bucket created successfully"
           else
             echo "❌ Bucket creation failed, checking if it already exists..."
-            gsutil ls gs://${{ env.BUCKET_NAME }}/ && echo "Bucket already exists" || echo "Bucket still doesn't exist"
+            gsutil -m ls -p fake-project gs://${{ env.BUCKET_NAME }}/ && echo "Bucket already exists" || echo "Bucket still doesn't exist"
           fi
 
       # Verify Service Account Access
@@ -151,11 +147,11 @@ jobs:
         run: |
           echo "Bucket access (using fake GCS):"
           echo "Checking if bucket exists..."
-          if gsutil ls gs://${{ env.BUCKET_NAME }}/ 2>/dev/null; then
+          if gsutil -m ls -p fake-project gs://${{ env.BUCKET_NAME }}/ 2>/dev/null; then
             echo "✅ Bucket access verified - bucket exists and is accessible"
           else
             echo "❌ Bucket not accessible, trying to list all buckets..."
-            gsutil ls || echo "No buckets found"
+            gsutil -m ls -p fake-project || echo "No buckets found"
           fi
 
       # Preview Changes
@@ -275,7 +271,7 @@ jobs:
       - name: Create test bucket
         run: |
           echo "Creating bucket with fake GCS configuration..."
-          gsutil mb gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
+          gsutil -m mb -p fake-project gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
 
       # Deploy Configuration
       - name: Deploy Configuration
