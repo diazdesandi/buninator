@@ -37,6 +37,7 @@ jobs:
         uses: ./.github/actions/handle-artifact
         with:
           main-sha: ${{ inputs.commit-sha }}
+          gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify bucket access
@@ -74,6 +75,7 @@ jobs:
         uses: ./.github/actions/handle-artifact
         with:
           main-sha: ${{ inputs.commit-sha }}
+          gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy file
