@@ -23,8 +23,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Buninator
-        uses: ./.github/actions/setup-buninator
+      - name: Artifact Handler
+        uses: ./.github/actions/handle-artifact
         id: resolve
         with:
           main-sha: ${{ github.event.pull_request.head.sha }}
@@ -51,8 +51,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Buninator
-        uses: ./.github/actions/setup-buninator
+      - name: Artifact Handler
+        uses: ./.github/actions/handle-artifact
         id: resolve
         with:
           main-sha: ${{ github.event.pull_request.head.sha }}

@@ -1,5 +1,5 @@
-name: 'Setup Buninator'
-description: 'Setup Buninator with artifact download and authentication'
+name: 'Artifact Handler'
+description: 'Downloads and processes artifacts from a specified commit'
 inputs:
   main-sha:
     description: 'SHA of the commit to find artifacts for'
@@ -18,19 +18,12 @@ runs:
   using: 'composite'
   steps:
     - name: Setup Bun
-      uses: ./github/actions/setup-bun
+      uses: ./.github/actions/setup-bun
 
     - name: Get run ID and artifact name
       id: resolve
-      uses: actions/github-script@v8
-      with:
-        github-token: ${{ inputs.github-token }}
-        script: |
-          buninator find \
-          --sha ${{ inputs.main-sha }} \
-          --token ${{ inputs.github-token }} \
-          --owner ${{ github.repository_owner }} \
-          --repo ${{ github.event.repository.name }}
+      run: buninator find --sha ${{ inputs.main-sha }} --token ${{ inputs.github-token }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }}
+      shell: bash
 
     - name: Download artifact
       uses: actions/download-artifact@v4
