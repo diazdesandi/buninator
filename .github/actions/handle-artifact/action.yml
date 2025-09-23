@@ -1,5 +1,5 @@
-name: 'Setup Buninator'
-description: 'Setup Buninator with artifact download and authentication'
+name: 'Artifact Handler'
+description: 'Downloads and processes artifacts from a specified commit'
 inputs:
   main-sha:
     description: 'SHA of the commit to find artifacts for'

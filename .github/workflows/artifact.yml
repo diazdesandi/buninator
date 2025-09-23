@@ -44,8 +44,8 @@ jobs:
           name: "artifacts-${{ github.sha }}"
           path: ${{ steps.find_json.outputs.json_files }}
           
-      - name: Setup Buninator
-        uses: ./.github/actions/setup-buninator
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
       
       - name: Generate summary
         run: buninator summary --commit "${{ github.sha }}" --files "${{ steps.find_json.outputs.json_files }}" --run-id "${{ github.run_id }}"
