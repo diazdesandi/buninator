@@ -37,19 +37,26 @@ jobs:
           port: 4443
           log-level: info
 
-      # Override GCS to use fake server and create gsutil wrapper
+      # Override GCS to use fake server and configure gsutil
       - name: Configure fake GCS environment
         run: |
           echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
           echo "GOOGLE_CLOUD_PROJECT=fake-project" >> $GITHUB_ENV
           
-          # Create a gsutil wrapper that adds fake GCS options
-          sudo mv /usr/bin/gsutil /usr/bin/gsutil-real
-          sudo tee /usr/bin/gsutil > /dev/null << 'EOF'
-          #!/bin/bash
-          exec /usr/bin/gsutil-real -o "Credentials:gs_json_host=127.0.0.1" -o "Credentials:gs_json_port=4443" -o "Boto:https_validate_certificates=False" "$@"
+          # Verify fake GCS server is running
+          echo "Testing fake GCS server connectivity..."
+          curl -f http://localhost:4443/storage/v1/b || echo "Fake GCS server not responding"
+          
+          # Configure gsutil to use fake GCS server
+          mkdir -p ~/.config/gcloud
+          cat > ~/.boto << EOF
+          [Credentials]
+          gs_json_host = 127.0.0.1
+          gs_json_port = 4443
+          
+          [Boto]
+          https_validate_certificates = False
           EOF
-          sudo chmod +x /usr/bin/gsutil
 
       # Get run ID and artifact name (inline from your action)
       - name: Get run ID and artifact name
@@ -122,13 +129,17 @@ jobs:
       # Create test bucket
       - name: Create test bucket
         run: |
-          gsutil mb -p fake-project gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
+          echo "Creating bucket with fake GCS configuration..."
+          gsutil mb gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
 
       # Verify Service Account Access
       - name: Verify Service Account Access
         run: |
           echo "Bucket access (using fake GCS):"
-          gsutil ls -p fake-project gs://${{ env.BUCKET_NAME }}/ && echo "Bucket access verified"
+          echo "Checking gsutil configuration..."
+          gsutil version -l
+          echo "Listing bucket contents..."
+          gsutil ls gs://${{ env.BUCKET_NAME }}/ && echo "Bucket access verified"
 
       # Preview Changes
       - name: Preview Changes
@@ -158,19 +169,22 @@ jobs:
           port: 4443
           log-level: info
 
-      # Override GCS to use fake server and create gsutil wrapper
+      # Override GCS to use fake server and configure gsutil
       - name: Configure fake GCS environment
         run: |
           echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
           echo "GOOGLE_CLOUD_PROJECT=fake-project" >> $GITHUB_ENV
           
-          # Create a gsutil wrapper that adds fake GCS options
-          sudo mv /usr/bin/gsutil /usr/bin/gsutil-real
-          sudo tee /usr/bin/gsutil > /dev/null << 'EOF'
-          #!/bin/bash
-          exec /usr/bin/gsutil-real -o "Credentials:gs_json_host=127.0.0.1" -o "Credentials:gs_json_port=4443" -o "Boto:https_validate_certificates=False" "$@"
+          # Configure gsutil to use fake GCS server
+          mkdir -p ~/.config/gcloud
+          cat > ~/.boto << EOF
+          [Credentials]
+          gs_json_host = 127.0.0.1
+          gs_json_port = 4443
+          
+          [Boto]
+          https_validate_certificates = False
           EOF
-          sudo chmod +x /usr/bin/gsutil
 
       # Get run ID and artifact name (inline from your action)
       - name: Get run ID and artifact name
@@ -243,7 +257,8 @@ jobs:
       # Create test bucket
       - name: Create test bucket
         run: |
-          gsutil mb -p fake-project gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
+          echo "Creating bucket with fake GCS configuration..."
+          gsutil mb gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
 
       # Deploy Configuration
       - name: Deploy Configuration
