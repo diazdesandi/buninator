@@ -17,31 +17,31 @@ permissions:
 env:
   BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
   
 jobs:
   preview:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' }}
     outputs:
-      config-file: ${{ steps.setup.outputs.config-file }}
+      config-file: ${{ steps.artifact.outputs.config-file }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Setup Bun and dependencies
-        uses: ./.github/actions/setup-bun
-
-      - name: Setup fake-gcs-server Environment
-        id: setup
+      - name: Setup Environment
         uses: ./.github/actions/setup-fake-gcs-environment
+
+      - name: Handle Artifact
+        id: artifact
+        uses: ./.github/actions/handle-artifact
         with:
           commit-sha: ${{ inputs.commit-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify bucket access
         run: |
+          echo "Bucket access:"
           if gsutil -m ls -p fake-project gs://${{ env.BUCKET_NAME }}/ 2>/dev/null; then
             echo "✅ Bucket access verified"
           else
@@ -50,7 +50,7 @@ jobs:
           fi
 
       - name: Preview Changes
-        run: buninator preview "${{ steps.setup.outputs.config-file }}"
+        run: buninator preview "${{ steps.artifact.outputs.config-file }}"
 
   deploy:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -61,23 +61,24 @@ jobs:
       group: prod
       cancel-in-progress: true
     steps:
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Setup Bun and dependencies
-        uses: ./.github/actions/setup-bun
-
       - name: Setup Environment
-        id: setup
-        uses: ./.github/actions/setup-environment
+        uses: ./.github/actions/setup-fake-gcs-environment
+
+      - name: Handle Artifact
+        id: artifact
+        uses: ./.github/actions/handle-artifact
         with:
           commit-sha: ${{ inputs.commit-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy file
         run: |
-          CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
+          CONFIG_FILE="${{ steps.artifact.outputs.config-file }}"
           echo "🚀 Deploying $(basename $CONFIG_FILE) to gs://${{ env.BUCKET_NAME }}/"
           buninator deploy "$CONFIG_FILE"
-          buninator summary --commit "${{ inputs.commit-sha }}" --config-file "${{ steps.setup.outputs.config-file }}"
+          buninator summary --commit "${{ inputs.commit-sha }}" --config-file "$CONFIG_FILE"
