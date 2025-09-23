@@ -17,41 +17,20 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Setup Bun
+      uses: ./github/actions/setup-bun
+
     - name: Get run ID and artifact name
       id: resolve
       uses: actions/github-script@v8
       with:
         github-token: ${{ inputs.github-token }}
         script: |
-          const sha = '${{ inputs.main-sha }}';
-          const owner = context.repo.owner;
-          const repo = context.repo.repo;
-
-          async function findRunFor(event) {
-            const { data } = await github.request(
-              'GET /repos/{owner}/{repo}/actions/runs',
-              { owner, repo, head_sha: sha, event, per_page: 1 }
-            );
-            return data.workflow_runs?.[0]?.id || null;
-          }
-
-          // Try push, then merge_group
-          let runId = await findRunFor('push');
-          if (!runId) core.setFailed(`No workflow run found for ${sha} (push/merge_group)`);
-
-          // List artifacts
-          const { data: arts } = await github.request(
-            'GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts',
-            { owner, repo, run_id: runId, per_page: 100 }
-          );
-
-          // Get artifacts artifacts-${sha}
-          const name = `artifacts-${sha}`;
-          const artifact = arts.artifacts.find(a => a.name === name);
-          if (!artifact) core.setFailed(`Artifact ${name} not found on run ${runId}`);
-
-          core.setOutput('run_id', String(runId));
-          core.setOutput('artifact_name', name);
+          buninator find \
+          --sha ${{ inputs.main-sha }} \
+          --token ${{ inputs.github-token }} \
+          --owner ${{ github.repository_owner }} \
+          --repo ${{ github.event.repository.name }}
 
     - name: Download artifact
       uses: actions/download-artifact@v4
@@ -60,15 +39,6 @@ runs:
         name: ${{ steps.resolve.outputs.artifact_name }}
         path: ./artifact
         github-token: ${{ inputs.github-token }}
-
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
-    
-    - name: Install dependencies
-      shell: bash
-      run: bun install && bun link
 
     - name: Authenticate with Service Account
       uses: google-github-actions/auth@v3

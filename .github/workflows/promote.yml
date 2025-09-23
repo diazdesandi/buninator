@@ -23,14 +23,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set SHA
-        run: echo "MAIN_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-
       - name: Setup Buninator
-        id: setup
         uses: ./.github/actions/setup-buninator
+        id: resolve
         with:
-          main-sha: ${{ env.MAIN_SHA }}
+          main-sha: ${{ github.event.pull_request.head.sha }}
           gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -40,7 +37,7 @@ jobs:
           gsutil ls gs://${{ secrets.BUCKET_NAME }}/ && echo "Bucket access verified"
 
       - name: Preview Changes
-        run: buninator preview "${{ steps.setup.outputs.config-file }}"
+        run: buninator preview "${{ steps.resolve.outputs.config-file }}"
 
   deploy:
     if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
@@ -54,30 +51,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set SHA
-        run: echo "MAIN_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-
       - name: Setup Buninator
-        id: setup
         uses: ./.github/actions/setup-buninator
+        id: resolve
         with:
-          main-sha: ${{ env.MAIN_SHA }}
+          main-sha: ${{ github.event.pull_request.head.sha }}
           gcp-sa-key: ${{ secrets.GCP_SA_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy Configuration
         run: |
-          CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
+          CONFIG_FILE="${{ steps.resolve.outputs.config-file }}"
           echo "🚀 Deploying $CONFIG_FILE to gs://${{ secrets.BUCKET_NAME }}/$(basename $CONFIG_FILE)"
           buninator deploy "$CONFIG_FILE"
-
-      - name: Generate Deployment Summary
-        run: |
-          CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-          # ✅ Deployment Successful
-          **File:** \`$(basename $CONFIG_FILE)\`
-          **Timestamp:** \`$(date -Iseconds)\`
-          **Requester:** \`${{ github.actor }}\`
-          **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          EOF
+          buninator summary --commit "${{ github.event.pull_request.head.sha }}" --files "$CONFIG_FILE" --run-id "${{ github.run_id }}"

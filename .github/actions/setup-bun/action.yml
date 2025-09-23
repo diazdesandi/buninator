@@ -1,0 +1,14 @@
+name: 'Setup bun.sh and dependencies'
+description: 'Setup Bun and install dependencies'
+runs:
+  using: 'composite'
+  steps:
+    # Check replacement for using bun image directly
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      shell: bash
+      run: bun install && bun link

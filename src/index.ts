@@ -35,8 +35,22 @@ program
 	.option("-f, --files <files>", "Changed JSON files (space/comma separated)")
 	.option("-r, --run-id <id>", "GitHub Actions run ID")
 	.action(async (options) => {
-		const { getSummary } = await import("./cli/summary.ts");
-		await getSummary(options);
+		const { generateSummary } = await import("@cli/summary.ts");
+		await generateSummary(options);
+	});
+
+// buninator find --sha <sha> --token <token> --owner <owner> --repo <repo>
+program
+	.command("find")
+	.alias("f")
+	.description("Find GitHub Actions artifact")
+	.requiredOption("--sha <sha>", "SHA of the commit")
+	.requiredOption("--token <token>", "GitHub token")
+	.requiredOption("--owner <owner>", "Repository owner")
+	.requiredOption("--repo <repo>", "Repository name")
+	.action(async (options) => {
+		const { find } = await import("@cli/find.ts");
+		await find(options);
 	});
 
 program.parse();

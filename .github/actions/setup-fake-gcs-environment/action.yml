@@ -1,0 +1,47 @@
+name: 'Setup Fake GCS Environment'
+description: 'Configure fake GCS server and environment'
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup fake GCS server
+      uses: fsouza/fake-gcs-action@v0.4.1
+      with:
+        version: latest
+        port: 4443
+
+    - name: Configure fake GCS environment
+      shell: bash
+      run: |
+        echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
+        echo "GOOGLE_CLOUD_PROJECT=fake-project" >> $GITHUB_ENV
+        
+        # Configure gsutil to use fake GCS server
+        mkdir -p ~/.config/gcloud
+        cat > ~/.boto << EOF
+        [Credentials]
+        gs_json_host = 127.0.0.1
+        gs_json_port = 4443
+        
+        [Boto]
+        https_validate_certificates = False
+        EOF
+        
+        # Configure gcloud project
+        gcloud config set project fake-project || true
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+
+    - name: Create test bucket
+      shell: bash
+      run: |
+        echo "Creating bucket: ${{ env.BUCKET_NAME }}"
+        gsutil -m mb -p fake-project gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
+        
+        # Verify bucket access
+        if gsutil -m ls -p fake-project gs://${{ env.BUCKET_NAME }}/ 2>/dev/null; then
+          echo "✅ Bucket access verified"
+        else
+          echo "❌ Bucket not accessible"
+          exit 1
+        fi

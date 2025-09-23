@@ -7,6 +7,7 @@ on:
         required: true
         type: string
         default: 0fbdabf55f9326ac71233b67ecb067309a78c41a
+        # Existing commit for testing
     
 permissions:
   contents: read
@@ -22,141 +23,34 @@ jobs:
   preview:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' }}
+    outputs:
+      config-file: ${{ steps.setup.outputs.config-file }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Set SHA
-        run: echo "MAIN_SHA=${{ inputs.commit-sha }}" >> $GITHUB_ENV
+      - name: Setup Bun and dependencies
+        uses: ./.github/actions/setup-bun
 
-      # Start fake GCS server
-      - name: Setup fake GCS server
-        uses: fsouza/fake-gcs-action@v0.4.1
+      - name: Setup fake-gcs-server Environment
+        id: setup
+        uses: ./.github/actions/setup-fake-gcs-environment
         with:
-          version: latest
-          port: 4443
-          log-level: info
-
-      # Override GCS to use fake server and configure gsutil
-      - name: Configure fake GCS environment
-        run: |
-          echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
-          echo "GOOGLE_CLOUD_PROJECT=fake-project" >> $GITHUB_ENV
-          
-          # Configure gsutil to use fake GCS server
-          mkdir -p ~/.config/gcloud
-          cat > ~/.boto << EOF
-          [Credentials]
-          gs_json_host = 127.0.0.1
-          gs_json_port = 4443
-          
-          [Boto]
-          https_validate_certificates = False
-          EOF
-          
-          # Configure gcloud project
-          gcloud config set project fake-project || true
-          
-          echo "Created .boto configuration:"
-          cat ~/.boto
-
-      # Get run ID and artifact name (inline from your action)
-      - name: Get run ID and artifact name
-        id: resolve
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const sha = process.env.MAIN_SHA;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            async function findRunFor(event) {
-              const { data } = await github.request(
-                'GET /repos/{owner}/{repo}/actions/runs',
-                { owner, repo, head_sha: sha, event, per_page: 1 }
-              );
-              return data.workflow_runs?.[0]?.id || null;
-            }
-
-            // Try push, then merge_group
-            let runId = await findRunFor('push');
-            if (!runId) core.setFailed(`No workflow run found for ${sha} (push/merge_group)`);
-
-            // List artifacts
-            const { data: arts } = await github.request(
-              'GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts',
-              { owner, repo, run_id: runId, per_page: 100 }
-            );
-
-            // Get artifacts artifacts-${sha}
-            const name = `artifacts-${sha}`;
-            const artifact = arts.artifacts.find(a => a.name === name);
-            if (!artifact) core.setFailed(`Artifact ${name} not found on run ${runId}`);
-
-            core.setOutput('run_id', String(runId));
-            core.setOutput('artifact_name', name);
-
-      # Download artifact
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ steps.resolve.outputs.run_id }}
-          name: ${{ steps.resolve.outputs.artifact_name }}
-          path: ./artifact
+          commit-sha: ${{ inputs.commit-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Setup Bun
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-    
-      # Install dependencies
-      - name: Install dependencies
-        run: bun install && bun link
-
-      # Set up Cloud SDK (no authentication needed with fake GCS)
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v3
-
-      # Find config file
-      - name: Find config file
-        id: find-config
+      - name: Verify bucket access
         run: |
-          CONFIG_FILE=$(find ./artifact -name '*.json' | head -n 1)
-          echo "config-file=$CONFIG_FILE" >> $GITHUB_OUTPUT
-          echo "Using config file: $CONFIG_FILE"
-
-      # Create test bucket
-      - name: Create test bucket
-        run: |
-          echo "Creating bucket with fake GCS configuration..."
-          echo "Bucket name: ${{ env.BUCKET_NAME }}"
-          echo "Attempting to create bucket..."
-          if gsutil -m mb -p fake-project gs://${{ env.BUCKET_NAME }}/; then
-            echo "✅ Bucket created successfully"
-          else
-            echo "❌ Bucket creation failed, checking if it already exists..."
-            gsutil -m ls -p fake-project gs://${{ env.BUCKET_NAME }}/ && echo "Bucket already exists" || echo "Bucket still doesn't exist"
-          fi
-
-      # Verify Service Account Access
-      - name: Verify Service Account Access
-        run: |
-          echo "Bucket access (using fake GCS):"
-          echo "Checking if bucket exists..."
           if gsutil -m ls -p fake-project gs://${{ env.BUCKET_NAME }}/ 2>/dev/null; then
-            echo "✅ Bucket access verified - bucket exists and is accessible"
+            echo "✅ Bucket access verified"
           else
-            echo "❌ Bucket not accessible, trying to list all buckets..."
+            echo "❌ Bucket not accessible"
             gsutil -m ls -p fake-project || echo "No buckets found"
           fi
 
-      # Preview Changes
       - name: Preview Changes
-        run: buninator preview "${{ steps.find-config.outputs.config-file }}"
+        run: buninator preview "${{ steps.setup.outputs.config-file }}"
 
   deploy:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -171,124 +65,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set SHA
-        run: echo "MAIN_SHA=${{ inputs.commit-sha }}" >> $GITHUB_ENV
+      - name: Setup Bun and dependencies
+        uses: ./.github/actions/setup-bun
 
-      # Start fake GCS server
-      - name: Setup fake GCS server
-        uses: fsouza/fake-gcs-action@v0.4.1
+      - name: Setup Environment
+        id: setup
+        uses: ./.github/actions/setup-environment
         with:
-          version: latest
-          port: 4443
-          log-level: info
-
-      # Override GCS to use fake server and configure gsutil
-      - name: Configure fake GCS environment
-        run: |
-          echo "STORAGE_EMULATOR_HOST=localhost:4443" >> $GITHUB_ENV
-          echo "GOOGLE_CLOUD_PROJECT=fake-project" >> $GITHUB_ENV
-          
-          # Configure gsutil to use fake GCS server
-          mkdir -p ~/.config/gcloud
-          cat > ~/.boto << EOF
-          [Credentials]
-          gs_json_host = 127.0.0.1
-          gs_json_port = 4443
-          
-          [Boto]
-          https_validate_certificates = False
-          EOF
-
-      # Get run ID and artifact name (inline from your action)
-      - name: Get run ID and artifact name
-        id: resolve
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const sha = process.env.MAIN_SHA;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            async function findRunFor(event) {
-              const { data } = await github.request(
-                'GET /repos/{owner}/{repo}/actions/runs',
-                { owner, repo, head_sha: sha, event, per_page: 1 }
-              );
-              return data.workflow_runs?.[0]?.id || null;
-            }
-
-            // Try push, then merge_group
-            let runId = await findRunFor('push');
-            if (!runId) core.setFailed(`No workflow run found for ${sha} (push/merge_group)`);
-
-            // List artifacts
-            const { data: arts } = await github.request(
-              'GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts',
-              { owner, repo, run_id: runId, per_page: 100 }
-            );
-
-            // Get artifacts artifacts-${sha}
-            const name = `artifacts-${sha}`;
-            const artifact = arts.artifacts.find(a => a.name === name);
-            if (!artifact) core.setFailed(`Artifact ${name} not found on run ${runId}`);
-
-            core.setOutput('run_id', String(runId));
-            core.setOutput('artifact_name', name);
-
-      # Download artifact
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ steps.resolve.outputs.run_id }}
-          name: ${{ steps.resolve.outputs.artifact_name }}
-          path: ./artifact
+          commit-sha: ${{ inputs.commit-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Setup Bun
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-    
-      # Install dependencies
-      - name: Install dependencies
-        run: bun install && bun link
-
-      # Set up Cloud SDK (no authentication needed with fake GCS)
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v3
-
-      # Find config file
-      - name: Find config file
-        id: find-config
+      - name: Deploy file
         run: |
-          CONFIG_FILE=$(find ./artifact -name '*.json' | head -n 1)
-          echo "config-file=$CONFIG_FILE" >> $GITHUB_OUTPUT
-          echo "Using config file: $CONFIG_FILE"
-
-      # Create test bucket
-      - name: Create test bucket
-        run: |
-          echo "Creating bucket with fake GCS configuration..."
-          gsutil -m mb -p fake-project gs://${{ env.BUCKET_NAME }}/ || echo "Bucket already exists"
-
-      # Deploy Configuration
-      - name: Deploy Configuration
-        run: |
-          CONFIG_FILE="${{ steps.find-config.outputs.config-file }}"
-          echo "🚀 Deploying $CONFIG_FILE to gs://${{ env.BUCKET_NAME }}/$(basename $CONFIG_FILE) (fake GCS)"
+          CONFIG_FILE="${{ steps.setup.outputs.config-file }}"
+          echo "🚀 Deploying $(basename $CONFIG_FILE) to gs://${{ env.BUCKET_NAME }}/"
           buninator deploy "$CONFIG_FILE"
-
-      # Generate Deployment Summary
-      - name: Generate Deployment Summary
-        run: |
-          CONFIG_FILE="${{ steps.find-config.outputs.config-file }}"
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-          # ✅ Deployment Successful (Fake GCS)
-          **File:** \`$(basename $CONFIG_FILE)\`
-          **Timestamp:** \`$(date -Iseconds)\`
-          **Requester:** \`${{ github.actor }}\`
-          **Workflow:** [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          **Note:** Deployed to fake GCS server for testing
-          EOF
+          buninator summary --commit "${{ inputs.commit-sha }}" --config-file "${{ steps.setup.outputs.config-file }}"

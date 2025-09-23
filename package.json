@@ -16,6 +16,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@actions/core": "^1.11.1",
     "commander": "^14.0.0",
     "consola": "^3.4.2",
     "octokit": "^5.0.3"
