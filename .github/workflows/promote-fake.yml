@@ -136,8 +136,6 @@ jobs:
       - name: Verify Service Account Access
         run: |
           echo "Bucket access (using fake GCS):"
-          echo "Checking gsutil configuration..."
-          gsutil version -l
           echo "Listing bucket contents..."
           gsutil ls gs://${{ env.BUCKET_NAME }}/ && echo "Bucket access verified"
 
