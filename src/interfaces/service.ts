@@ -10,6 +10,7 @@ export interface IGithubService {
 export interface IGCSService {
 	getFile(filePath: string): Promise<string>;
 	uploadFile(filePath: string): Promise<void>;
+	checkBucketAccess(): Promise<boolean>;
 }
 
 export interface IContainer {

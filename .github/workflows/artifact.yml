@@ -2,6 +2,8 @@ name: Generate Artifact
 on:
   push:
     branches: [main, master]
+    paths:
+      - "main.json"
 
 permissions:
   contents: read
@@ -43,12 +45,12 @@ jobs:
         with:
           name: "artifacts-${{ github.sha }}"
           path: ${{ steps.find_json.outputs.json_files }}
-          
+
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
-      
+
       - name: Generate summary
-        run: buninator summary --commit "${{ github.sha }}" --files "${{ steps.find_json.outputs.json_files }}" --run-id "${{ github.run_id }}"
+        run: buninator summary --commit "${{ github.sha }}" --run-id "${{ github.run_id }}"
 
       - name: Create prod PR
         run: |

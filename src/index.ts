@@ -34,14 +34,24 @@ program
 		await previewAction(file);
 	});
 
-// buninator action --commit "$GITHUB_EVENT_PATH" --files "file1.json,file2.json" --run-id "$GITHUB_RUN_ID"
+program
+	.command("check-access")
+	.alias("ca")
+	.description("Check GCS bucket access")
+	.action(async () => {
+		const { checkAccess } = await import("@cli/check.ts");
+		const checkAction = checkAccess(gcsService);
+		await checkAction();
+	});
+
+// buninator summary --commit "$GITHUB_EVENT_PATH" --run-id "$GITHUB_RUN_ID"
 program
 	.command("summary")
 	.alias("s")
 	.description("Generate a summary of the PR")
-	.option("-c, --commit <commit>", "GitHub PR object as path")
-	.option("-f, --files <files>", "Changed JSON files (space/comma separated)")
-	.option("-r, --run-id <id>", "GitHub Actions run ID")
+	.requiredOption("-c, --commit <commit>", "GitHub PR object as path")
+	.requiredOption("-r, --run-id <id>", "GitHub Actions run ID")
+	.option("-d ,--deployment", "Force deployment summary mode")
 	.action(async (options) => {
 		const { generateSummary } = await import("@cli/summary.ts");
 		const summaryAction = generateSummary(githubService);

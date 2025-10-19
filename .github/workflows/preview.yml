@@ -1,4 +1,4 @@
-name: Promote to Production
+name: Preview deployment
 on:
   pull_request:
     branches: [prod]
@@ -14,13 +14,8 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  deploy:
-    if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
+  preview:
     runs-on: ubuntu-latest
-    environment: prod
-    concurrency:
-      group: prod
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,8 +36,5 @@ jobs:
       - name: Check account access
         run: buninator check-access
 
-      - name: Deploy and Summarize
-        run: |
-          CONFIG_FILE="${{ steps.resolve.outputs.config-file }}"
-          buninator deploy "$CONFIG_FILE"
-          buninator summary --commit "${{ github.event.pull_request.head.sha }}" --run-id "${{ github.run_id }}" -d
+      - name: Preview Changes
+        run: buninator preview "${{ steps.resolve.outputs.config-file }}"

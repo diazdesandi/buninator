@@ -16,7 +16,7 @@ const preview =
 		// Show current config if exists
 		try {
 			const current = await gcsService.getFile(filename);
-			consola.info("\n📄 CURRENT CONFIG:");
+			consola.info("\n CURRENT CONFIG:");
 			const currentConfig = JSON.parse(current.toString());
 			const lines = JSON.stringify(currentConfig, null, 2)
 				.split("\n")

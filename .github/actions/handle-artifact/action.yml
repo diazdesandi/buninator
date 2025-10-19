@@ -1,21 +1,18 @@
-name: 'Artifact Handler'
-description: 'Downloads and processes artifacts from a specified commit'
+name: "Artifact Handler"
+description: "Downloads and processes artifacts from a specified commit"
 inputs:
   main-sha:
-    description: 'SHA of the commit to find artifacts for'
-    required: true
-  gcp-sa-key:
-    description: 'GCP Service Account Key'
+    description: "SHA of the commit to find artifacts for"
     required: true
   github-token:
-    description: 'GitHub Token'
+    description: "GitHub Token"
     required: true
 outputs:
   config-file:
-    description: 'Path to the downloaded config file'
+    description: "Path to the downloaded config file"
     value: ${{ steps.find-config.outputs.config-file }}
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Setup Bun
       uses: ./.github/actions/setup-bun
@@ -32,14 +29,6 @@ runs:
         name: ${{ steps.resolve.outputs.artifact_name }}
         path: ./artifact
         github-token: ${{ inputs.github-token }}
-
-    - name: Authenticate with Service Account
-      uses: google-github-actions/auth@v3
-      with:
-        credentials_json: ${{ inputs.gcp-sa-key }}
-
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v3
 
     - name: Find config file
       id: find-config
