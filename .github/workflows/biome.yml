@@ -5,12 +5,14 @@ on:
     paths-ignore:
       - "main.json"
       - "README.md"
+      - ".github/**"
 
   pull_request:
     branches: [main]
     paths-ignore:
       - "main.json"
       - "README.md"
+      - ".github/**"
 
 jobs:
   quality-check:
