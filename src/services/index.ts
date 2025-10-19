@@ -1,1 +1,2 @@
-export * from './github.service'
+export * from "./gcs.service";
+export * from "./github.service";

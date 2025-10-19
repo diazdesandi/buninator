@@ -1,17 +1,18 @@
-import { token } from "@config";
+import { TOKEN } from "@config";
+import type {
+	IGithubService,
+	PullRequest,
+	RepoInfo,
+	WorkflowArtifactSelection,
+} from "@interfaces";
 import { Octokit } from "octokit";
 
-interface RepoInfo {
-	owner: string;
-	repo: string;
-}
-
-export class GitHubService {
+export class GithubService implements IGithubService {
 	private readonly octokit: Octokit;
 	private readonly repoInfo: RepoInfo;
 
 	constructor() {
-		this.octokit = new Octokit({ auth: token });
+		this.octokit = new Octokit({ auth: TOKEN });
 		const [owner, repo] = (Bun.env.GITHUB_REPOSITORY || "").split("/");
 		// Type assertion since we expect these to be defined in GitHub Actions
 		this.repoInfo = { owner, repo } as RepoInfo;
@@ -32,7 +33,7 @@ export class GitHubService {
 		});
 	}
 
-	async findPr(sha: string) {
+	async findPr(sha: string): Promise<PullRequest> {
 		const { owner, repo } = this.repoInfo;
 
 		const { data } = await this.octokit.request(
@@ -53,7 +54,7 @@ export class GitHubService {
 		return response.data;
 	}
 
-	async findArtifact(sha: string) {
+	async findArtifact(sha: string): Promise<WorkflowArtifactSelection> {
 		const { owner, repo } = this.repoInfo;
 
 		const { data: runs } =

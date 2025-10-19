@@ -3,21 +3,22 @@ on:
   workflow_dispatch:
     inputs:
       commit-sha:
-        description: 'Commit SHA to deploy'
+        description: "Commit SHA to deploy"
         required: true
         type: string
         default: 0fbdabf55f9326ac71233b67ecb067309a78c41a
         # Existing commit for testing
-    
+
 permissions:
   contents: read
   actions: read
-  pull-requests: write  
-  
+  pull-requests: write
+
 env:
+  HUSKY: 0
   BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
+
 jobs:
   preview:
     runs-on: ubuntu-latest
@@ -62,7 +63,6 @@ jobs:
       group: prod
       cancel-in-progress: true
     steps:
-
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -81,6 +81,5 @@ jobs:
       - name: Deploy file
         run: |
           CONFIG_FILE="${{ steps.artifact.outputs.config-file }}"
-          echo "🚀 Deploying $(basename $CONFIG_FILE) to gs://${{ env.BUCKET_NAME }}/"
           buninator deploy "$CONFIG_FILE"
           buninator summary --commit "${{ inputs.commit-sha }}" --config-file "$CONFIG_FILE"

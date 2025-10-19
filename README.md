@@ -67,6 +67,7 @@ GH_TOKEN="your-github-token"
 ## Project Structure
 
 - `src/cli/preview.ts` – Preview config changes
+- `src/cli/find.ts` - Find Workflow
 - `src/cli/deploy.ts` – Deploy config to GCP bucket
 - `src/cli/summary.ts` – Generate and post PR summary
 - `src/index.ts` – CLI entrypoint

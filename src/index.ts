@@ -1,9 +1,16 @@
 #!/usr/bin/env bun
+import { container } from "@config";
 import { Command } from "commander";
 
 const program = new Command();
 
-program.name("buninator").version("1.0.0");
+program
+	.name("buninator")
+	.version("1.0.0")
+	.description("CLI Tool to manage deployments to GCP via GitHub Actions");
+
+const githubService = container.getGithubService();
+const gcsService = container.getGCSService();
 
 program
 	.command("deploy")
@@ -11,8 +18,9 @@ program
 	.description("Deploy a file to a GCP bucket")
 	.argument("<file>", "File to deploy")
 	.action(async (file) => {
-		const { deploy } = await import("./cli/deploy.ts");
-		await deploy(file);
+		const { deploy } = await import("@cli/deploy.ts");
+		const deployAction = deploy(gcsService);
+		await deployAction(file);
 	});
 
 program
@@ -21,10 +29,10 @@ program
 	.description("Preview file to deploy")
 	.argument("<file>", "File to deploy")
 	.action(async (file) => {
-		const { preview } = await import("./cli/preview.ts");
-		await preview(file);
+		const { preview } = await import("@cli/preview.ts");
+		const previewAction = preview(gcsService);
+		await previewAction(file);
 	});
-
 
 // buninator action --commit "$GITHUB_EVENT_PATH" --files "file1.json,file2.json" --run-id "$GITHUB_RUN_ID"
 program
@@ -36,7 +44,8 @@ program
 	.option("-r, --run-id <id>", "GitHub Actions run ID")
 	.action(async (options) => {
 		const { generateSummary } = await import("@cli/summary.ts");
-		await generateSummary(options);
+		const summaryAction = generateSummary(githubService);
+		await summaryAction(options);
 	});
 
 // buninator find --sha <sha> --token <token> --owner <owner> --repo <repo>
@@ -50,7 +59,8 @@ program
 	.requiredOption("--repo <repo>", "Repository name")
 	.action(async (options) => {
 		const { find } = await import("@cli/find.ts");
-		await find(options);
+		const findAction = find(githubService);
+		await findAction(options);
 	});
 
 program.parse();

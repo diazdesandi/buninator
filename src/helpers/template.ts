@@ -1,6 +1,6 @@
-import type { TemplateType } from "@interfaces";
+import type { PullRequestWrapper, TemplateType } from "@interfaces";
 
-const getTemplate = (type: TemplateType, data: any): string => {
+const getTemplate = (type: TemplateType, data: PullRequestWrapper): string => {
 	switch (type) {
 		case "artifact":
 			return `# 📦 Artifact Generated
@@ -12,8 +12,8 @@ const getTemplate = (type: TemplateType, data: any): string => {
 
 **Generated Files:**
 ${data.files.map((f: string) => `- \`${f}\``).join("\n")}`;
-		
-        case "deployment":
+
+		case "deployment":
 			return `# 🚀 Deployment Successful
 
 **Environment:** \`${data.environment}\`
