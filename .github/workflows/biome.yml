@@ -1,7 +1,16 @@
 name: Code Quality
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - "main.json"
+      - "README.md"
+
   pull_request:
+    branches: [main]
+    paths-ignore:
+      - "main.json"
+      - "README.md"
 
 jobs:
   quality-check:
