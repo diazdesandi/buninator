@@ -2,6 +2,7 @@ import { getTemplate } from "@helpers";
 import type {
 	IGithubService,
 	PullRequest,
+	PullRequestWrapper,
 	SummaryOptions,
 	TemplateType,
 } from "@interfaces";
@@ -12,24 +13,21 @@ const generateSummary =
 	async (options: SummaryOptions): Promise<void> => {
 		try {
 			// Detect type of summary to generate
-			const type: TemplateType = options.configFile ? "deployment" : "artifact";
+			const type: TemplateType = options.deployment ? "deployment" : "artifact";
 
 			// Get PR
 			const pr: PullRequest = await gitHubService.findPr(options.commit);
 
 			// Prepare template data
 			const runId = options.runId || Bun.env.GITHUB_RUN_ID || "";
-			const data = {
+			const runUrl = gitHubService.getRunUrl(runId);
+			const data: PullRequestWrapper = {
 				timestamp: new Date().toISOString(),
 				pr,
 				runId,
-				runUrl: gitHubService.getRunUrl(runId),
-				files:
-					options.files?.split(/[\s,]+/).filter((f) => f.endsWith(".json")) ||
-					[],
-				environment: options.environment || "production",
-				configFile: options.configFile,
-				requester: Bun.env.GITHUB_ACTOR || "unknown",
+				runUrl,
+				commit: options.commit,
+				files: options.files,
 			};
 
 			// Render template

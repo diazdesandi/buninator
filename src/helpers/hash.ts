@@ -13,4 +13,17 @@ const sha256Hex = async (file: string): Promise<string> => {
 	}
 };
 
-export { sha256Hex };
+const verifyFileHash = async (
+	path: string,
+	expected: string,
+): Promise<void> => {
+	const actual = await sha256Hex(path);
+	if (actual !== expected) {
+		const msg = `❌ Hash mismatch for ${path}: expected ${expected}, got ${actual}`;
+		consola.error(msg);
+		throw new Error(msg);
+	}
+	consola.success(`Hash verified for ${path}`);
+};
+
+export { verifyFileHash };
